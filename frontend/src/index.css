@@ -1,3 +1,6 @@
 .font-arabic {
   font-family: 'Noto Naskh Arabic', serif;
 }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
