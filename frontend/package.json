@@ -17,8 +17,8 @@
     "social-aggregator",
     "storyhub"
   ],
-  "author": "Votre Nom",
-  "license": "MIT",
+  "author": "SYM",
+  "license": "SYM_co",
   "browserslist": {
     "production": [
       ">0.2%",
@@ -39,8 +39,10 @@
     "postcss": "^8.5.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-scripts": "^0.0.0",
     "tailwindcss": "^4.1.10",
     "vercel": "^43.2.0"
+  },
+  "devDependencies": {
+    "react-scripts": "^5.0.1"
   }
 }
