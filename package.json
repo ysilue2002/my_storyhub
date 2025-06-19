@@ -1,6 +1,29 @@
-"scripts": {
-  "start": "cd frontend && npm start",
-  "server": "cd backend && node server.js",
-  "dev": "concurrently \"npm start\" \"npm run server\"",
-  "build": "cd frontend && npm run build"
+{
+  "name": "my-storyhub",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Application web qui regroupe les contenus sociaux d'une personne sur plusieurs plateformes sociales",
+  "scripts": {
+    "start": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "server": "cd backend && node server.js",
+    "dev": "concurrently \"npm start\" \"npm run server\""
+  },
+  "keywords": [
+    "react",
+    "multilingual",
+    "rtl",
+    "arabic",
+    "social-aggregator"
+  ],
+  "author": "Votre Nom",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.7",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
 }
