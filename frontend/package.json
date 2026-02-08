@@ -1,0 +1,49 @@
+{
+  "name": "my-storyhub",
+  "version": "1.0.0",
+  "description": "Application web qui regroupe les contenus sociaux d'une personne sur Instagram, YouTube, TikTok, etc.",
+  "private": true,
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "keywords": [
+    "react",
+    "multilingual",
+    "rtl",
+    "arabic",
+    "social-aggregator",
+    "storyhub"
+  ],
+  "author": "SYM",
+  "license": "SYM_co",
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io-client": "^4.8.3",
+    "vercel": "^43.2.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "react-scripts": "^5.0.1",
+    "tailwindcss": "^3.4.19"
+  }
+}
