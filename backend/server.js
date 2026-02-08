@@ -93,6 +93,13 @@ const safeUnlink = (fileUrl) => {
   }
 };
 
+const normalizeFileUrl = (fileUrl) => {
+  if (!fileUrl) return fileUrl;
+  const uploadsIndex = fileUrl.indexOf('/uploads/');
+  if (uploadsIndex === -1) return fileUrl;
+  return `${SERVER_BASE_URL}${fileUrl.slice(uploadsIndex)}`;
+};
+
 const authRequired = (req, res, next) => {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -534,6 +541,8 @@ app.post('/api/auth/register', async (req, res) => {
   );
 
   const user = result.rows[0];
+  user.avatarUrl = normalizeFileUrl(user.avatarUrl);
+  user.coverUrl = normalizeFileUrl(user.coverUrl);
   const token = jwt.sign({ id: user.id, email: user.email, name: user.name, role: user.role }, JWT_SECRET, {
     expiresIn: '7d',
   });
@@ -572,8 +581,8 @@ app.post('/api/auth/login', async (req, res) => {
     availability: user.availability,
     goals: user.goals || [],
     interests: user.interests || [],
-    avatarUrl: user.avatar_url || null,
-    coverUrl: user.cover_url || null,
+    avatarUrl: normalizeFileUrl(user.avatar_url) || null,
+    coverUrl: normalizeFileUrl(user.cover_url) || null,
     role: user.role || 'user',
   };
 
@@ -588,7 +597,10 @@ app.get('/api/me', authRequired, async (req, res) => {
   if (result.rows.length === 0) {
     return res.status(404).json({ error: 'Utilisateur introuvable.' });
   }
-  res.json(result.rows[0]);
+  const row = result.rows[0];
+  row.avatarUrl = normalizeFileUrl(row.avatarUrl);
+  row.coverUrl = normalizeFileUrl(row.coverUrl);
+  res.json(row);
 });
 
 app.get('/api/users/:id', async (req, res) => {
@@ -605,7 +617,10 @@ app.get('/api/users/:id', async (req, res) => {
   if (result.rows.length === 0) {
     return res.status(404).json({ error: 'Utilisateur introuvable.' });
   }
-  res.json(result.rows[0]);
+  const row = result.rows[0];
+  row.avatarUrl = normalizeFileUrl(row.avatarUrl);
+  row.coverUrl = normalizeFileUrl(row.coverUrl);
+  res.json(row);
 });
 
 app.put('/api/me', authRequired, async (req, res) => {
@@ -711,7 +726,13 @@ app.get('/api/users', async (req, res) => {
         return haystack.includes(query);
       })
     : result.rows;
-  res.json(data);
+  res.json(
+    data.map((user) => ({
+      ...user,
+      avatarUrl: normalizeFileUrl(user.avatarUrl),
+      coverUrl: normalizeFileUrl(user.coverUrl),
+    }))
+  );
 });
 
 // Hubmates suggestions based on shared goals/interests (simple similarity score)
@@ -803,7 +824,7 @@ app.get('/api/goals', async (req, res) => {
       })
     : result.rows;
   const filtered = ownerId ? data.filter((goal) => goal.ownerId === ownerId) : data;
-  res.json(filtered);
+  res.json(filtered.map((goal) => ({ ...goal, imageUrl: normalizeFileUrl(goal.imageUrl) })));
 });
 
 app.get('/api/my-goals', authRequired, async (req, res) => {
@@ -816,7 +837,7 @@ app.get('/api/my-goals', authRequired, async (req, res) => {
     `,
     [req.user.id]
   );
-  res.json(result.rows);
+  res.json(result.rows.map((goal) => ({ ...goal, imageUrl: normalizeFileUrl(goal.imageUrl) })));
 });
 
 app.post('/api/goals', authRequired, async (req, res) => {
@@ -836,7 +857,9 @@ app.post('/api/goals', authRequired, async (req, res) => {
     `,
     [req.user.id, title, description || '', category || '', progress || 0, tags || [], imageUrl || null]
   );
-  res.status(201).json(result.rows[0]);
+  const row = result.rows[0];
+  row.imageUrl = normalizeFileUrl(row.imageUrl);
+  res.status(201).json(row);
 });
 
 app.put('/api/goals/:id', authRequired, async (req, res) => {
@@ -874,7 +897,9 @@ app.put('/api/goals/:id', authRequired, async (req, res) => {
     safeUnlink(current.rows[0].imageUrl);
   }
 
-  res.json(result.rows[0]);
+  const row = result.rows[0];
+  row.imageUrl = normalizeFileUrl(row.imageUrl);
+  res.json(row);
 });
 
 app.delete('/api/goals/:id', authRequired, async (req, res) => {
@@ -948,7 +973,13 @@ app.get('/api/posts', async (req, res) => {
     `,
     [userId, safeLimit, safeOffset]
   );
-  res.json(result.rows);
+  res.json(
+    result.rows.map((row) => ({
+      ...row,
+      imageUrl: normalizeFileUrl(row.imageUrl),
+      userAvatar: normalizeFileUrl(row.userAvatar),
+    }))
+  );
 });
 
 app.post('/api/posts', authRequired, ensureNotSuspended, async (req, res) => {
@@ -964,7 +995,9 @@ app.post('/api/posts', authRequired, ensureNotSuspended, async (req, res) => {
     `,
     [req.user.id, body, imageUrl || null]
   );
-  res.status(201).json(result.rows[0]);
+  const row = result.rows[0];
+  row.imageUrl = normalizeFileUrl(row.imageUrl);
+  res.status(201).json(row);
 });
 
 app.put('/api/posts/:id', authRequired, ensureNotSuspended, async (req, res) => {
@@ -986,7 +1019,9 @@ app.put('/api/posts/:id', authRequired, ensureNotSuspended, async (req, res) => 
   if (result.rows.length === 0) {
     return res.status(404).json({ error: 'Publication introuvable.' });
   }
-  res.json(result.rows[0]);
+  const row = result.rows[0];
+  row.imageUrl = normalizeFileUrl(row.imageUrl);
+  res.json(row);
 });
 
 app.post('/api/posts/:id/like', authRequired, ensureNotSuspended, async (req, res) => {
