@@ -203,11 +203,6 @@ export default function Admin() {
     loadAdminData();
   };
 
-  const adminDeleteComment = async (commentId) => {
-    await authFetch(`${API_BASE}/api/admin/comments/${commentId}`, { method: 'DELETE' });
-    loadAdminData();
-  };
-
   const adminDeleteMessage = async (messageId) => {
     await authFetch(`${API_BASE}/api/admin/messages/${messageId}`, { method: 'DELETE' });
     loadAdminData();
