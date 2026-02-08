@@ -132,6 +132,7 @@
   "requests_filter_accepted": "تم القبول",
   "requests_filter_declined": "تم الرفض",
   "requests_filter_all": "الكل",
+  "notifications_view_profile": "عرض الملف",
   "error_required": "يرجى ملء الحقول المطلوبة.",
   "error_progress": "يجب أن تكون النسبة بين 0 و 100.",
   "error_upload": "فشل الرفع. حاول مرة أخرى.",

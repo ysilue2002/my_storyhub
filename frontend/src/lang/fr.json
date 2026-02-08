@@ -132,6 +132,7 @@
   "requests_filter_accepted": "Acceptées",
   "requests_filter_declined": "Refusées",
   "requests_filter_all": "Toutes",
+  "notifications_view_profile": "Voir profil",
   "error_required": "Veuillez remplir les champs obligatoires.",
   "error_progress": "La progression doit être entre 0 et 100.",
   "error_upload": "Échec de l’upload. Réessaie.",

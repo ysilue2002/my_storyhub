@@ -132,6 +132,7 @@
   "requests_filter_accepted": "Accepted",
   "requests_filter_declined": "Declined",
   "requests_filter_all": "All",
+  "notifications_view_profile": "View profile",
   "error_required": "Please fill in the required fields.",
   "error_progress": "Progress must be between 0 and 100.",
   "error_upload": "Upload failed. Please try again.",

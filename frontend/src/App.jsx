@@ -74,11 +74,20 @@ export default function App() {
   const t = messages[lang];
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [toast, setToast] = useState('');
+  const [currentHash, setCurrentHash] = useState(window.location.hash || '');
 
   useEffect(() => {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentHash(window.location.hash || '');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const authFetch = (url, options = {}) => {
     const headers = { ...(options.headers || {}) };
@@ -1341,7 +1350,7 @@ export default function App() {
           <div className="max-w-6xl mx-auto px-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-2xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-                {t.notifications_title}
+                {t.notifications_requests_title}
               </h2>
               <div className="flex items-center gap-2">
                 <button
@@ -1363,21 +1372,51 @@ export default function App() {
                 </button>
               </div>
             </div>
-            {visibleNotifications.length === 0 ? (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {['pending', 'accepted', 'declined', 'all'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setRequestsStatusFilter(status)}
+                  className={`text-xs border px-3 py-1 rounded-lg ${
+                    requestsStatusFilter === status
+                      ? 'border-amber-300 bg-amber-100 text-amber-700'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {status === 'pending'
+                    ? t.requests_filter_pending
+                    : status === 'accepted'
+                      ? t.requests_filter_accepted
+                      : status === 'declined'
+                        ? t.requests_filter_declined
+                        : t.requests_filter_all}
+                </button>
+              ))}
+            </div>
+            {visibleRequests.length === 0 ? (
               <p className="text-sm text-slate-500">{t.notifications_empty}</p>
             ) : (
               <div className="flex flex-col gap-6">
-                {visibleNotifications.filter((item) => item.type === 'connection_request').length > 0 && (
+                {visibleRequests.length > 0 && (
                   <div className="border border-slate-100 rounded-2xl p-4 bg-white/90">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-sm font-semibold">{t.notifications_requests_title}</p>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
-                      {visibleNotifications
-                        .filter((item) => item.type === 'connection_request')
+                      {visibleRequests
+                        .filter((item) =>
+                          requestsStatusFilter === 'all'
+                            ? true
+                            : (item.metadata?.requestStatus || 'pending') === requestsStatusFilter
+                        )
                         .map((item) => {
                           const requestStatus = item.metadata?.requestStatus || 'pending';
                           const isPendingRequest = requestStatus === 'pending';
+                          const requester = users.find((user) => user.id === item.metadata?.fromUserId);
+                          const createdAt = new Date(item.createdAt);
+                          const isNew = !Number.isNaN(createdAt.getTime())
+                            ? Date.now() - createdAt.getTime() < 1000 * 60 * 60 * 24
+                            : false;
                           const statusLabel =
                             requestStatus === 'accepted'
                               ? t.notifications_request_accepted
@@ -1397,11 +1436,44 @@ export default function App() {
                                 item.isRead ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50'
                               }`}
                             >
+                              <div className="flex items-center gap-3 mb-3">
+                                <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden">
+                                  {requester?.avatarUrl && (
+                                    <img src={requester.avatarUrl} alt={requester.name} className="h-full w-full object-cover" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-slate-800">
+                                    {requester?.name || t.report_profile}
+                                  </p>
+                                  {requester?.handle && (
+                                    <p className="text-xs text-slate-500">{requester.handle}</p>
+                                  )}
+                                  {requester?.city && (
+                                    <p className="text-[11px] text-slate-400">{requester.city}</p>
+                                  )}
+                                </div>
+                                {requester?.id && (
+                                  <a
+                                    href={`/profile?user=${requester.id}`}
+                                    className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                                  >
+                                    {t.notifications_view_profile}
+                                  </a>
+                                )}
+                              </div>
                               <div className="flex items-center justify-between gap-2">
                                 <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
-                                  {statusLabel}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  {isNew && (
+                                    <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full">
+                                      {t.notifications_new}
+                                    </span>
+                                  )}
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
+                                    {statusLabel}
+                                  </span>
+                                </div>
                               </div>
                               <p className="text-sm text-slate-700 mt-2">{item.body}</p>
                               <div className="mt-3 flex flex-wrap gap-2">
@@ -1416,7 +1488,7 @@ export default function App() {
                                   <>
                                     <button
                                       onClick={() => acceptHubmateRequest(item)}
-                                      className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
+                                      className="text-xs text-white bg-emerald-600 px-3 py-1 rounded-lg hover:bg-emerald-500"
                                     >
                                       {t.notifications_accept}
                                     </button>
@@ -1441,106 +1513,6 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="grid md:grid-cols-2 gap-4">
-                  {visibleNotifications
-                    .filter((item) => item.type !== 'connection_request')
-                    .map((item) => {
-                    const requestStatus =
-                      item.type === 'connection_request'
-                        ? item.metadata?.requestStatus || 'pending'
-                        : null;
-                    const responseStatus =
-                      item.type === 'connection_response' ? item.metadata?.status || null : null;
-                    const isPendingRequest = item.type === 'connection_request' && requestStatus === 'pending';
-                    const status = requestStatus || responseStatus;
-                    const statusLabel =
-                      status === 'accepted'
-                        ? t.notifications_request_accepted
-                        : status === 'declined'
-                          ? t.notifications_request_declined
-                          : status === 'pending'
-                            ? t.notifications_request_pending
-                            : '';
-                    const statusClass =
-                      status === 'accepted'
-                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                        : status === 'declined'
-                          ? 'text-rose-700 bg-rose-50 border-rose-200'
-                          : status === 'pending'
-                            ? 'text-slate-600 bg-slate-100 border-slate-200'
-                            : '';
-                    const canOpenConversation =
-                      item.type === 'connection_response' &&
-                      status === 'accepted' &&
-                      item.metadata?.conversationId;
-                    return (
-                      <div
-                        key={item.id}
-                        className={`border rounded-2xl p-4 ${
-                          item.isRead ? 'border-slate-100 bg-white/80' : 'border-amber-200 bg-amber-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
-                          <div className="flex items-center gap-2">
-                            {statusLabel && (
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
-                                {statusLabel}
-                              </span>
-                            )}
-                            {!item.isRead && (
-                              <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full">
-                                {t.notifications_new}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-sm text-slate-700 mt-2">{item.body}</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            onClick={() => markNotificationRead(item.id)}
-                            disabled={item.isRead}
-                            className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
-                          >
-                            {t.notifications_mark}
-                          </button>
-                          {isPendingRequest && (
-                            <>
-                              <button
-                                onClick={() => acceptHubmateRequest(item)}
-                                className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
-                              >
-                                {t.notifications_accept}
-                              </button>
-                              <button
-                                onClick={() => declineHubmateRequest(item)}
-                                className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
-                              >
-                                {t.notifications_decline}
-                              </button>
-                            </>
-                          )}
-                          {canOpenConversation && (
-                            <button
-                              onClick={() => openConversationFromNotification(item)}
-                              className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
-                            >
-                              {t.notifications_open_conversation}
-                            </button>
-                          )}
-                          {(item.type === 'message' || item.type === 'connection_request') && (
-                            <button
-                              onClick={() => replyToHubmate(item)}
-                              className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                            >
-                              {t.notifications_reply}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
             )}
           </div>
@@ -1548,6 +1520,7 @@ export default function App() {
 
 
 
+        {currentHash !== '#notifications' && currentHash !== '#hubmates-requests' && (
         <section className="py-12">
           <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-[0.45fr_0.55fr] gap-6">
             <div className="bg-white/90 border border-slate-100 rounded-2xl p-6 shadow-[var(--shadow-soft)]">
@@ -1778,6 +1751,7 @@ export default function App() {
             </div>
           </div>
         </section>
+        )}
       </main>
 
       <section id="hubmates-requests" className="py-16 bg-white/70 border-t border-slate-100">
