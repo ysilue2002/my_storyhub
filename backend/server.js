@@ -211,6 +211,10 @@ const initDb = async () => {
       category TEXT,
       progress INTEGER DEFAULT 0,
       image_url TEXT,
+      start_date DATE,
+      end_date DATE,
+      steps JSONB DEFAULT '[]'::jsonb,
+      priority TEXT DEFAULT 'normal',
       tags TEXT[] DEFAULT '{}',
       created_at TIMESTAMP DEFAULT NOW()
     );
@@ -275,6 +279,10 @@ const initDb = async () => {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_url TEXT;`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_until TIMESTAMP;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS image_url TEXT;`);
+  await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS start_date DATE;`);
+  await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS end_date DATE;`);
+  await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS steps JSONB DEFAULT '[]'::jsonb;`);
+  await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'normal';`);
   await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS is_sponsor_of_day BOOLEAN DEFAULT FALSE;`);
   await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS sponsor_start DATE;`);
   await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS sponsor_end DATE;`);
@@ -823,7 +831,10 @@ app.get('/api/goals', async (req, res) => {
   const query = (req.query.q || '').toLowerCase();
   const ownerId = req.query.ownerId ? Number(req.query.ownerId) : null;
   const result = await pool.query(
-    'SELECT id, owner_id AS "ownerId", title, description, category, progress, tags, image_url AS "imageUrl" FROM goals'
+    `SELECT id, owner_id AS "ownerId", title, description, category, progress, tags,
+            image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
+            steps, priority
+     FROM goals`
   );
   const data = query
     ? result.rows.filter((goal) => {
@@ -840,7 +851,9 @@ app.get('/api/goals', async (req, res) => {
 app.get('/api/my-goals', authRequired, async (req, res) => {
   const result = await pool.query(
     `
-      SELECT id, owner_id AS "ownerId", title, description, category, progress, tags, image_url AS "imageUrl"
+      SELECT id, owner_id AS "ownerId", title, description, category, progress, tags,
+             image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
+             steps, priority
       FROM goals
       WHERE owner_id = $1
       ORDER BY created_at DESC
@@ -851,21 +864,38 @@ app.get('/api/my-goals', authRequired, async (req, res) => {
 });
 
 app.post('/api/goals', authRequired, async (req, res) => {
-  const { title, description, category, progress, tags, imageUrl } = req.body || {};
+  const { title, description, category, progress, tags, imageUrl, startDate, endDate, steps, priority } = req.body || {};
   if (!title) {
     return res.status(400).json({ error: 'title requis.' });
   }
   if (progress !== undefined && (progress < 0 || progress > 100)) {
     return res.status(400).json({ error: 'progress invalide.' });
   }
+  if (Array.isArray(steps) && steps.length > 5) {
+    return res.status(400).json({ error: 'max 5 étapes.' });
+  }
 
   const result = await pool.query(
     `
-      INSERT INTO goals (owner_id, title, description, category, progress, tags, image_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, owner_id AS "ownerId", title, description, category, progress, tags, image_url AS "imageUrl"
+      INSERT INTO goals (owner_id, title, description, category, progress, tags, image_url, start_date, end_date, steps, priority)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id, owner_id AS "ownerId", title, description, category, progress, tags,
+                image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
+                steps, priority
     `,
-    [req.user.id, title, description || '', category || '', progress || 0, tags || [], imageUrl || null]
+    [
+      req.user.id,
+      title,
+      description || '',
+      category || '',
+      progress || 0,
+      tags || [],
+      imageUrl || null,
+      startDate || null,
+      endDate || null,
+      Array.isArray(steps) ? steps : [],
+      priority || 'normal',
+    ]
   );
   const row = result.rows[0];
   row.imageUrl = normalizeFileUrl(row.imageUrl);
@@ -874,9 +904,12 @@ app.post('/api/goals', authRequired, async (req, res) => {
 
 app.put('/api/goals/:id', authRequired, async (req, res) => {
   const { id } = req.params;
-  const { title, description, category, progress, tags, imageUrl } = req.body || {};
+  const { title, description, category, progress, tags, imageUrl, startDate, endDate, steps, priority } = req.body || {};
   if (progress !== undefined && (progress < 0 || progress > 100)) {
     return res.status(400).json({ error: 'progress invalide.' });
+  }
+  if (Array.isArray(steps) && steps.length > 5) {
+    return res.status(400).json({ error: 'max 5 étapes.' });
   }
 
   const current = await pool.query(
@@ -892,11 +925,17 @@ app.put('/api/goals/:id', authRequired, async (req, res) => {
           category = COALESCE($3, category),
           progress = COALESCE($4, progress),
           tags = COALESCE($5, tags),
-          image_url = COALESCE($6, image_url)
-      WHERE id = $7 AND owner_id = $8
-      RETURNING id, owner_id AS "ownerId", title, description, category, progress, tags, image_url AS "imageUrl"
+          image_url = COALESCE($6, image_url),
+          start_date = COALESCE($7, start_date),
+          end_date = COALESCE($8, end_date),
+          steps = COALESCE($9, steps),
+          priority = COALESCE($10, priority)
+      WHERE id = $11 AND owner_id = $12
+      RETURNING id, owner_id AS "ownerId", title, description, category, progress, tags,
+                image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
+                steps, priority
     `,
-    [title, description, category, progress, tags, imageUrl, id, req.user.id]
+    [title, description, category, progress, tags, imageUrl, startDate, endDate, Array.isArray(steps) ? steps : null, priority, id, req.user.id]
   );
 
   if (result.rows.length === 0) {

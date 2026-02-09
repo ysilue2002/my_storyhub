@@ -54,6 +54,10 @@ export default function App() {
     progress: 0,
     tags: '',
     imageUrl: '',
+    startDate: '',
+    endDate: '',
+    priority: 'normal',
+    steps: [{ title: '', done: false }],
   });
   const [ads, setAds] = useState([]);
   const [hubmateSuggestions, setHubmateSuggestions] = useState([]);
@@ -478,6 +482,44 @@ export default function App() {
     setMessageText((prev) => `${prev}${emoji}`);
   };
 
+  const updateGoalStep = (index, patch) => {
+    setGoalForm((prev) => {
+      const nextSteps = (prev.steps || []).slice(0, 5).map((step, idx) =>
+        idx === index ? { ...step, ...patch } : step
+      );
+      return { ...prev, steps: nextSteps };
+    });
+  };
+
+  const addGoalStep = () => {
+    setGoalForm((prev) => {
+      const current = prev.steps || [];
+      if (current.length >= 5) return prev;
+      return { ...prev, steps: [...current, { title: '', done: false }] };
+    });
+  };
+
+  const removeGoalStep = (index) => {
+    setGoalForm((prev) => {
+      const current = prev.steps || [];
+      const nextSteps = current.filter((_, idx) => idx !== index);
+      return { ...prev, steps: nextSteps.length > 0 ? nextSteps : [{ title: '', done: false }] };
+    });
+  };
+
+  const getGoalStatus = (goal) => {
+    if (Number(goal.progress) >= 100) return 'done';
+    if (Number(goal.progress) <= 0) return 'not_started';
+    return 'in_progress';
+  };
+
+  const getMotivationBadge = (goal) => {
+    const statusKey = getGoalStatus(goal);
+    if (statusKey === 'done') return { label: t.badge_congrats, className: 'bg-emerald-100 text-emerald-700' };
+    if (statusKey === 'not_started') return { label: t.badge_motivation, className: 'bg-amber-100 text-amber-700' };
+    return { label: t.badge_encourage, className: 'bg-sky-100 text-sky-700' };
+  };
+
   const handleProfileSave = async () => {
     if (!authToken) return;
     if (!profileForm.name.trim()) {
@@ -527,6 +569,10 @@ export default function App() {
       progress: 0,
       tags: '',
       imageUrl: '',
+      startDate: '',
+      endDate: '',
+      priority: 'normal',
+      steps: [{ title: '', done: false }],
     });
   };
 
@@ -541,6 +587,13 @@ export default function App() {
       setGoalStatus({ error: t.error_progress, success: '' });
       return;
     }
+    const cleanedSteps = (goalForm.steps || [])
+      .map((step) => ({ title: String(step.title || '').trim(), done: Boolean(step.done) }))
+      .filter((step) => step.title);
+    if (cleanedSteps.length > 5) {
+      setGoalStatus({ error: t.error_steps_limit, success: '' });
+      return;
+    }
     const payload = {
       title: goalForm.title,
       description: goalForm.description,
@@ -551,6 +604,10 @@ export default function App() {
         .map((item) => item.trim())
         .filter(Boolean),
       imageUrl: goalForm.imageUrl || null,
+      startDate: goalForm.startDate || null,
+      endDate: goalForm.endDate || null,
+      priority: goalForm.priority || 'normal',
+      steps: cleanedSteps,
     };
 
     if (goalForm.id) {
@@ -591,6 +648,10 @@ export default function App() {
       progress: goal.progress || 0,
       tags: (goal.tags || []).join(', '),
       imageUrl: goal.imageUrl || '',
+      startDate: goal.startDate ? String(goal.startDate).slice(0, 10) : '',
+      endDate: goal.endDate ? String(goal.endDate).slice(0, 10) : '',
+      priority: goal.priority || 'normal',
+      steps: Array.isArray(goal.steps) && goal.steps.length > 0 ? goal.steps.slice(0, 5) : [{ title: '', done: false }],
     });
   };
 
@@ -1864,6 +1925,16 @@ export default function App() {
                   disabled={!authToken}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
                 />
+                <select
+                  value={goalForm.priority}
+                  onChange={(event) => setGoalForm({ ...goalForm, priority: event.target.value })}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                >
+                  <option value="high">{t.goal_priority_high}</option>
+                  <option value="normal">{t.goal_priority_normal}</option>
+                  <option value="low">{t.goal_priority_low}</option>
+                </select>
                 <input
                   type="number"
                   min="0"
@@ -1874,6 +1945,28 @@ export default function App() {
                   disabled={!authToken}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
                 />
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-slate-500">{t.goal_start_date}</label>
+                    <input
+                      type="date"
+                      value={goalForm.startDate}
+                      onChange={(event) => setGoalForm({ ...goalForm, startDate: event.target.value })}
+                      disabled={!authToken}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-slate-500">{t.goal_end_date}</label>
+                    <input
+                      type="date"
+                      value={goalForm.endDate}
+                      onChange={(event) => setGoalForm({ ...goalForm, endDate: event.target.value })}
+                      disabled={!authToken}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                    />
+                  </div>
+                </div>
                 <input
                   type="text"
                   value={goalForm.tags}
@@ -1882,6 +1975,48 @@ export default function App() {
                   disabled={!authToken}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
                 />
+                <div className="border border-slate-200 rounded-xl p-3 bg-white/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-slate-500">{t.goal_steps}</label>
+                    <button
+                      type="button"
+                      onClick={addGoalStep}
+                      disabled={!authToken || (goalForm.steps || []).length >= 5}
+                      className="text-xs text-slate-600 border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {t.goal_steps_add}
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(goalForm.steps || []).map((step, index) => (
+                      <div key={`step-${index}`} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(step.done)}
+                          onChange={(event) => updateGoalStep(index, { done: event.target.checked })}
+                          disabled={!authToken}
+                        />
+                        <input
+                          type="text"
+                          value={step.title}
+                          onChange={(event) => updateGoalStep(index, { title: event.target.value })}
+                          placeholder={`${t.goal_step_label} ${index + 1}`}
+                          disabled={!authToken}
+                          className="flex-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeGoalStep(index)}
+                          disabled={!authToken}
+                          className="text-xs text-rose-600 border border-rose-200 px-2 py-1 rounded hover:bg-rose-50"
+                        >
+                          {t.goal_step_remove}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">{t.goal_steps_hint}</p>
+                </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs text-slate-500">{t.goal_image}</label>
                   <input type="file" accept="image/*" onChange={handleGoalImageUpload} disabled={!authToken} />
@@ -1923,10 +2058,66 @@ export default function App() {
                           <p className="text-sm font-semibold">{goal.title}</p>
                           <p className="text-xs text-slate-500">{goal.category}</p>
                         </div>
-                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
-                          {goal.progress}%
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+                            {goal.progress}%
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${getMotivationBadge(goal).className}`}>
+                            {getMotivationBadge(goal).label}
+                          </span>
+                        </div>
                       </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                        <span className="px-2 py-0.5 rounded-full border border-slate-200">
+                          {t.goal_status_label}: {getGoalStatus(goal) === 'done' ? t.goal_status_done : getGoalStatus(goal) === 'not_started' ? t.goal_status_not_started : t.goal_status_in_progress}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full border border-slate-200">
+                          {t.goal_priority_label}: {goal.priority === 'high' ? t.goal_priority_high : goal.priority === 'low' ? t.goal_priority_low : t.goal_priority_normal}
+                        </span>
+                        {(goal.startDate || goal.endDate) && (
+                          <span className="px-2 py-0.5 rounded-full border border-slate-200">
+                            {t.goal_time_window}: {goal.startDate ? String(goal.startDate).slice(0, 10) : '--'} → {goal.endDate ? String(goal.endDate).slice(0, 10) : '--'}
+                          </span>
+                        )}
+                      </div>
+                      {(goal.startDate && goal.endDate) && (
+                        <div className="mt-3">
+                          {(() => {
+                            const start = new Date(goal.startDate);
+                            const end = new Date(goal.endDate);
+                            const total = end.getTime() - start.getTime();
+                            const elapsed = Date.now() - start.getTime();
+                            const ratio = total > 0 ? Math.min(Math.max(elapsed / total, 0), 1) : 0;
+                            const percent = Math.round(ratio * 100);
+                            const steps = Array.isArray(goal.steps) ? goal.steps : [];
+                            return (
+                              <div>
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                                  <span>{t.goal_time_progress}</span>
+                                  <span>{percent}%</span>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                                  <div className="h-full bg-amber-500" style={{ width: `${percent}%` }} />
+                                </div>
+                                {steps.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {steps.map((step, idx) => (
+                                      <span
+                                        key={`goal-step-${goal.id}-${idx}`}
+                                        className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                          step.done ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500'
+                                        }`}
+                                      >
+                                        {step.title}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
                       <p className="text-xs text-slate-500 mt-2">{goal.description}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {(goal.tags || []).map((tag) => (
