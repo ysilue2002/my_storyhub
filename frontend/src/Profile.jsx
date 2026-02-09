@@ -1107,7 +1107,6 @@ export default function Profile() {
                 <p><strong>{t.profile_age}:</strong> {(publicProfile?.age ?? currentUser?.age) || '-'}</p>
                 <p><strong>{t.profile_country}:</strong> {(publicProfile?.country || currentUser?.country) || '-'}</p>
                 <p><strong>{t.profile_city}:</strong> {(publicProfile?.city || currentUser?.city) || '-'}</p>
-                <p><strong>{t.profile_availability}:</strong> {(publicProfile?.availability || currentUser?.availability) || '-'}</p>
                 <p><strong>{t.profile_bio}:</strong> {(publicProfile?.bio || currentUser?.bio) || '-'}</p>
                 <p><strong>{t.profile_goals_label}:</strong> {(publicProfile?.goals || currentUser?.goals || []).join(', ') || '-'}</p>
                 <p><strong>{t.profile_interests_label}:</strong> {(publicProfile?.interests || currentUser?.interests || []).join(', ') || '-'}</p>
