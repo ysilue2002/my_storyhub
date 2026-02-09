@@ -53,7 +53,6 @@ export default function Header({ t, lang, rightSlot, hubmatesCount = 0, messages
               {t.nav_messages}
             </span>
           </a>
-        </nav>
           <a
             href="/profile"
             className="hover:text-slate-900"
