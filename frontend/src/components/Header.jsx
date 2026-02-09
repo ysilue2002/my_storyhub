@@ -12,9 +12,9 @@ export default function Header({ t, lang, rightSlot, hubmatesCount = 0, messages
             {t.title}
           </h1>
         </div>
-        <nav className={`hidden md:flex gap-6 text-sm text-slate-600 ${lang === 'ar' ? 'font-arabic' : ''}`}>
+        <nav className={`hidden md:flex items-center gap-6 text-sm text-slate-600 ${lang === 'ar' ? 'font-arabic' : ''}`}>
           <a href="/" className="hover:text-slate-900">{t.nav_home}</a>
-          <a href="#goals" className="hover:text-slate-900">{t.nav_goals}</a>
+          <a href="/#goals" className="hover:text-slate-900">{t.nav_goals}</a>
           <a
             href="/hubmates"
             className={`hover:text-slate-900 flex items-center gap-2 ${hubmatesActive ? 'text-amber-700' : ''}`}
@@ -54,15 +54,14 @@ export default function Header({ t, lang, rightSlot, hubmatesCount = 0, messages
             </span>
           </a>
         </nav>
-        <div className="flex items-center gap-3">
-          {rightSlot}
           <a
             href="/profile"
-            className="hidden md:inline-flex text-sm text-slate-700 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50 transition"
+            className="hover:text-slate-900"
           >
             {t.nav_profile}
           </a>
-        </div>
+          {rightSlot}
+        </nav>
       </div>
     </header>
   );

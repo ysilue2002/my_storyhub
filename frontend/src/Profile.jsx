@@ -4,6 +4,7 @@ import LanguageSwitcher from './components/LanguageSwitcher';
 import Footer from './components/Footer';
 import AuthCard from './components/AuthCard';
 import Header from './components/Header';
+import SearchBar from './components/SearchBar';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
@@ -55,6 +56,7 @@ export default function Profile() {
   const [messageStatus, setMessageStatus] = useState('');
   const socketRef = useRef(null);
   const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
 
@@ -87,6 +89,12 @@ export default function Profile() {
       });
     } catch (error) {
       setAlerts({ pendingRequests: 0, unreadMessages: 0 });
+    }
+  };
+
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      setSearchQuery('');
     }
   };
 
@@ -554,6 +562,18 @@ export default function Profile() {
         lang={lang}
         hubmatesCount={alerts.pendingRequests}
         messagesCount={alerts.unreadMessages}
+        rightSlot={(
+          <div className="w-72">
+            <SearchBar
+              placeholder={t.search_placeholder}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onSearch={handleSearch}
+              buttonText={t.search_button}
+              lang={lang}
+            />
+          </div>
+        )}
       />
 
       <div className="max-w-6xl mx-auto px-6 pt-6">

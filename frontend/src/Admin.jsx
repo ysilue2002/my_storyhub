@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AuthCard from './components/AuthCard';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import Footer from './components/Footer';
+import SearchBar from './components/SearchBar';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
@@ -44,6 +45,7 @@ export default function Admin() {
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
+  const [searchQuery, setSearchQuery] = useState('');
 
   const t = messages[lang];
   const ADMIN_CODE = process.env.REACT_APP_ADMIN_CODE || '';
@@ -52,6 +54,12 @@ export default function Admin() {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
+
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      setSearchQuery('');
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('viewMode', viewMode);
@@ -302,6 +310,20 @@ export default function Admin() {
   return (
     <div className={`min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900 ${isSimple ? 'view-simple' : ''}`}>
       <LanguageSwitcher lang={lang} setLang={setLang} />
+      <div className="max-w-6xl mx-auto px-6 pt-6">
+        <div className="flex justify-end">
+          <div className="w-72">
+            <SearchBar
+              placeholder={t.search_placeholder}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onSearch={handleSearch}
+              buttonText={t.search_button}
+              lang={lang}
+            />
+          </div>
+        </div>
+      </div>
       <header className="bg-white/80 backdrop-blur border-b border-slate-100 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className={`text-2xl font-semibold ${lang === 'ar' ? 'font-arabic' : 'font-heading'}`}>

@@ -4,6 +4,7 @@ import LanguageSwitcher from './components/LanguageSwitcher';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import AuthCard from './components/AuthCard';
+import SearchBar from './components/SearchBar';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
@@ -25,6 +26,7 @@ export default function Messages() {
   const [box, setBox] = useState('inbox');
   const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
   const socketRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const t = messages[lang];
 
@@ -200,6 +202,12 @@ export default function Messages() {
     }
   };
 
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      setSearchQuery('');
+    }
+  };
+
   const handleDeleteMessage = async (messageId) => {
     const confirmed = window.confirm(t.messages_delete_confirm);
     if (!confirmed) return;
@@ -216,6 +224,18 @@ export default function Messages() {
         lang={lang}
         hubmatesCount={alerts.pendingRequests}
         messagesCount={alerts.unreadMessages}
+        rightSlot={(
+          <div className="w-72">
+            <SearchBar
+              placeholder={t.search_placeholder}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onSearch={handleSearch}
+              buttonText={t.search_button}
+              lang={lang}
+            />
+          </div>
+        )}
       />
 
       <main className="max-w-6xl mx-auto px-6 py-8">

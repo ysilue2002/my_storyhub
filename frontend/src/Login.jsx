@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AuthCard from './components/AuthCard';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import Footer from './components/Footer';
+import SearchBar from './components/SearchBar';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
@@ -15,6 +16,7 @@ export default function Login() {
   const [authToken, setAuthToken] = useState(localStorage.getItem('authToken') || '');
   const [currentUser, setCurrentUser] = useState(null);
   const [authState, setAuthState] = useState({ loading: false, error: '' });
+  const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
 
@@ -24,6 +26,12 @@ export default function Login() {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
+
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      setSearchQuery('');
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('viewMode', viewMode);
@@ -106,6 +114,20 @@ export default function Login() {
   return (
     <div className={`min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900 ${isSimple ? 'view-simple' : ''}`}>
       <LanguageSwitcher lang={lang} setLang={setLang} />
+      <div className="max-w-6xl mx-auto px-6 pt-6">
+        <div className="flex justify-end">
+          <div className="w-72">
+            <SearchBar
+              placeholder={t.search_placeholder}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onSearch={handleSearch}
+              buttonText={t.search_button}
+              lang={lang}
+            />
+          </div>
+        </div>
+      </div>
       <div className="max-w-6xl mx-auto px-6 pt-6">
         <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
