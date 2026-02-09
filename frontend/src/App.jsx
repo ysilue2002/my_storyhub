@@ -4,11 +4,6 @@ import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 import Footer from './components/Footer';
 import LanguageSwitcher from './components/LanguageSwitcher';
-import GoalCard from './components/GoalCard';
-import ProfileCard from './components/ProfileCard';
-import ConversationCard from './components/ConversationCard';
-import AuthCard from './components/AuthCard';
-import NotificationCenter from './components/NotificationCenter';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
@@ -33,7 +28,6 @@ export default function App() {
   const [authState, setAuthState] = useState({ loading: false, error: '' });
   const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
-  const [notifications, setNotifications] = useState([]);
   const [profileStatus, setProfileStatus] = useState({ error: '', success: '' });
   const [goalStatus, setGoalStatus] = useState({ error: '', success: '' });
   const [uploadStatus, setUploadStatus] = useState({ error: '', avatar: false, cover: false, goal: false });
@@ -61,8 +55,6 @@ export default function App() {
   });
   const [ads, setAds] = useState([]);
   const [hubmateSuggestions, setHubmateSuggestions] = useState([]);
-  const [requestsPendingOnly, setRequestsPendingOnly] = useState(true);
-  const [requestsStatusFilter, setRequestsStatusFilter] = useState('pending');
   const [hubmateFilters, setHubmateFilters] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('hubmateFilters') || '{}');
@@ -76,7 +68,6 @@ export default function App() {
   });
 
   const t = messages[lang];
-  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [toast, setToast] = useState('');
   const [currentHash, setCurrentHash] = useState(window.location.hash || '');
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
@@ -227,22 +218,6 @@ export default function App() {
     loadMe();
   }, [authToken]);
 
-  useEffect(() => {
-    const loadNotifications = async () => {
-      if (!authToken) {
-        setNotifications([]);
-        return;
-      }
-      try {
-        const response = await authFetch(`${API_BASE}/api/notifications`);
-        const data = await response.json();
-        setNotifications(Array.isArray(data) ? data : []);
-      } catch (error) {
-        setNotifications([]);
-      }
-    };
-    loadNotifications();
-  }, [authToken]);
 
   useEffect(() => {
     const loadMyGoals = async () => {
@@ -295,13 +270,6 @@ export default function App() {
           conv.id === message.conversationId ? { ...conv, lastMessage: message.text } : conv
         )
       );
-    });
-
-    socket.on('notification:new', (notification) => {
-      setNotifications((prev) => {
-        if (prev.some((item) => item.id === notification.id)) return prev;
-        return [notification, ...prev].slice(0, 50);
-      });
     });
 
     return () => {
@@ -796,157 +764,13 @@ export default function App() {
   const handleLogout = () => {
     setAuthToken('');
     setCurrentUser(null);
-    setNotifications([]);
     localStorage.removeItem('authToken');
-  };
-
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
-  const pendingRequests = notifications.filter(
-    (item) =>
-      item.type === 'connection_request' &&
-      (item.metadata?.requestStatus || 'pending') === 'pending'
-  ).length;
-  const requestNotifications = notifications.filter((item) => item.type === 'connection_request');
-  const requestsSummary = requestNotifications.slice(0, 3);
-  const visibleRequests = requestsPendingOnly
-    ? requestNotifications.filter((item) => (item.metadata?.requestStatus || 'pending') === 'pending')
-    : requestNotifications;
-  const filteredRequests =
-    requestsStatusFilter === 'all'
-      ? requestNotifications
-      : requestNotifications.filter(
-          (item) => (item.metadata?.requestStatus || 'pending') === requestsStatusFilter
-        );
-  const requestCounts = {
-    pending: requestNotifications.filter((item) => (item.metadata?.requestStatus || 'pending') === 'pending')
-      .length,
-    accepted: requestNotifications.filter((item) => (item.metadata?.requestStatus || 'pending') === 'accepted')
-      .length,
-    declined: requestNotifications.filter((item) => (item.metadata?.requestStatus || 'pending') === 'declined')
-      .length,
-    all: requestNotifications.length,
   };
 
   const showToast = (message) => {
     if (!message) return;
     setToast(message);
     setTimeout(() => setToast(''), 2400);
-  };
-  const visibleNotifications = showUnreadOnly
-    ? notifications.filter((item) => !item.isRead)
-    : notifications;
-
-  const markNotificationRead = async (notificationId) => {
-    if (!authToken) return;
-    await authFetch(`${API_BASE}/api/notifications/${notificationId}/read`, { method: 'PUT' });
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
-    );
-  };
-
-  const markAllRead = async () => {
-    if (!authToken) return;
-    await authFetch(`${API_BASE}/api/notifications/read-all`, { method: 'PUT' });
-    setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
-  };
-
-  useEffect(() => {
-    const markConversationMessagesRead = async () => {
-      if (!authToken || !selectedConversation?.id) return;
-      const unreadMessageNotifs = notifications.filter(
-        (item) =>
-          !item.isRead &&
-          item.type === 'message' &&
-          item.metadata?.conversationId === selectedConversation.id
-      );
-      if (unreadMessageNotifs.length === 0) return;
-      await Promise.all(
-        unreadMessageNotifs.map((item) =>
-          authFetch(`${API_BASE}/api/notifications/${item.id}/read`, { method: 'PUT' })
-        )
-      );
-      setNotifications((prev) =>
-        prev.map((item) =>
-          item.type === 'message' && item.metadata?.conversationId === selectedConversation.id
-            ? { ...item, isRead: true }
-            : item
-        )
-      );
-    };
-    markConversationMessagesRead();
-  }, [authToken, selectedConversation, notifications]);
-
-  const acceptHubmateRequest = async (notification) => {
-    const requestId = notification?.metadata?.requestId;
-    if (!authToken || !requestId) return;
-    await authFetch(`${API_BASE}/api/connection-requests/${requestId}/accept`, {
-      method: 'POST',
-    });
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === notification.id
-          ? {
-              ...item,
-              isRead: true,
-              metadata: { ...(item.metadata || {}), requestStatus: 'accepted' },
-            }
-          : item
-      )
-    );
-  };
-
-  const declineHubmateRequest = async (notification) => {
-    const requestId = notification?.metadata?.requestId;
-    if (!authToken || !requestId) return;
-    const confirmed = window.confirm(t.notifications_decline_confirm);
-    if (!confirmed) return;
-    await authFetch(`${API_BASE}/api/connection-requests/${requestId}/decline`, {
-      method: 'POST',
-    });
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === notification.id
-          ? {
-              ...item,
-              isRead: true,
-              metadata: { ...(item.metadata || {}), requestStatus: 'declined' },
-            }
-          : item
-      )
-    );
-  };
-
-  const openConversationFromNotification = async (notification) => {
-    const conversationId = notification?.metadata?.conversationId;
-    if (!authToken || !conversationId) return;
-    await refreshConversations(conversationId);
-    await markNotificationRead(notification.id);
-    showToast(t.notifications_opened_conversation);
-    window.location.hash = '#messages';
-  };
-
-  const replyToHubmate = async (notification) => {
-    if (!authToken) return;
-    if (notification?.type === 'message' && notification?.metadata?.conversationId) {
-      await openConversationFromNotification(notification);
-      return;
-    }
-
-    const toUserId = notification?.metadata?.fromUserId;
-    if (!toUserId) return;
-    const text = window.prompt(t.notifications_reply_prompt);
-    if (!text) return;
-    const response = await authFetch(`${API_BASE}/api/conversations/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ toUserId, text }),
-    });
-    const data = await response.json();
-    if (data?.conversationId) {
-      await refreshConversations(data.conversationId);
-      await markNotificationRead(notification.id);
-      window.location.hash = '#messages';
-    }
   };
 
 
@@ -980,14 +804,7 @@ export default function App() {
           {toast}
         </div>
       )}
-      <NotificationCenter
-        notifications={notifications}
-        onClear={() => setNotifications([])}
-        title={t.notifications_title}
-        emptyLabel={t.notifications_empty}
-        clearLabel={t.notifications_clear}
-      />
-      <Header t={t} lang={lang} unreadCount={unreadCount} pendingRequests={pendingRequests} rightSlot={headerSearch} />
+      <Header t={t} lang={lang} rightSlot={headerSearch} />
 
       <main id="home" className="max-w-6xl mx-auto px-6 pb-16 pt-6">
         {status.error && (

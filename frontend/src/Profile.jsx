@@ -53,62 +53,11 @@ export default function Profile() {
   const [publicGoals, setPublicGoals] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [messageStatus, setMessageStatus] = useState('');
-  const [notifications, setNotifications] = useState([]);
   const socketRef = useRef(null);
-  const [requestsPendingOnly, setRequestsPendingOnly] = useState(true);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
 
   const t = messages[lang];
-
-  useEffect(() => {
-    document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
-    document.documentElement.setAttribute('lang', lang);
-  }, [lang]);
-
-  useEffect(() => {
-    localStorage.setItem('viewMode', viewMode);
-  }, [viewMode]);
-
-  const authFetch = (url, options = {}) => {
-    const headers = { ...(options.headers || {}) };
-    if (authToken) {
-      headers.Authorization = `Bearer ${authToken}`;
-    }
-    return fetch(url, { ...options, headers });
-  };
-
-  useEffect(() => {
-  const loadMe = async () => {
-      if (!authToken) {
-        setCurrentUser(null);
-        return;
-      }
-      try {
-        const response = await authFetch(`${API_BASE}/api/me`);
-        if (!response.ok) throw new Error('Auth failed');
-        const data = await response.json();
-        setCurrentUser(data);
-        setProfileForm({
-          name: data.name || '',
-          city: data.city || '',
-          bio: data.bio || '',
-          availability: data.availability || '',
-          goals: (data.goals || []).join(', '),
-          interests: (data.interests || []).join(', '),
-        });
-        if (data.goals?.length || data.interests?.length || data.availability) {
-          localStorage.setItem('onboardingDone', 'true');
-          setShowOnboarding(false);
-        }
-      } catch (error) {
-        setCurrentUser(null);
-        setAuthToken('');
-        localStorage.removeItem('authToken');
-      }
-    };
-    loadMe();
-  }, [authToken]);
 
   useEffect(() => {
     if (!authToken) {
@@ -122,34 +71,10 @@ export default function Profile() {
     const socket = io(WS_BASE, { auth: { token: authToken } });
     socketRef.current = socket;
 
-    socket.on('notification:new', (notification) => {
-      setNotifications((prev) => {
-        if (prev.some((item) => item.id === notification.id)) return prev;
-        return [notification, ...prev].slice(0, 50);
-      });
-    });
-
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [authToken]);
-
-  useEffect(() => {
-    const loadNotifications = async () => {
-      if (!authToken) {
-        setNotifications([]);
-        return;
-      }
-      try {
-        const response = await authFetch(`${API_BASE}/api/notifications`);
-        const data = await response.json();
-        setNotifications(Array.isArray(data) ? data : []);
-      } catch (error) {
-        setNotifications([]);
-      }
-    };
-    loadNotifications();
   }, [authToken]);
 
   useEffect(() => {
@@ -308,80 +233,7 @@ export default function Profile() {
   const handleLogout = () => {
     setAuthToken('');
     setCurrentUser(null);
-    setNotifications([]);
     localStorage.removeItem('authToken');
-  };
-
-  const pendingRequests = notifications.filter(
-    (item) =>
-      item.type === 'connection_request' &&
-      (item.metadata?.requestStatus || 'pending') === 'pending'
-  ).length;
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
-  const requestNotifications = notifications.filter((item) => item.type === 'connection_request');
-  const visibleRequests = requestsPendingOnly
-    ? requestNotifications.filter((item) => (item.metadata?.requestStatus || 'pending') === 'pending')
-    : requestNotifications;
-
-  const markNotificationRead = async (notificationId) => {
-    if (!authToken) return;
-    await authFetch(`${API_BASE}/api/notifications/${notificationId}/read`, { method: 'PUT' });
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
-    );
-  };
-
-  const acceptHubmateRequest = async (notification) => {
-    const requestId = notification?.metadata?.requestId;
-    if (!authToken || !requestId) return;
-    await authFetch(`${API_BASE}/api/connection-requests/${requestId}/accept`, {
-      method: 'POST',
-    });
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === notification.id
-          ? {
-              ...item,
-              isRead: true,
-              metadata: { ...(item.metadata || {}), requestStatus: 'accepted' },
-            }
-          : item
-      )
-    );
-  };
-
-  const declineHubmateRequest = async (notification) => {
-    const requestId = notification?.metadata?.requestId;
-    if (!authToken || !requestId) return;
-    const confirmed = window.confirm(t.notifications_decline_confirm);
-    if (!confirmed) return;
-    await authFetch(`${API_BASE}/api/connection-requests/${requestId}/decline`, {
-      method: 'POST',
-    });
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === notification.id
-          ? {
-              ...item,
-              isRead: true,
-              metadata: { ...(item.metadata || {}), requestStatus: 'declined' },
-            }
-          : item
-      )
-    );
-  };
-
-  const replyToHubmate = async (notification) => {
-    const toUserId = notification?.metadata?.fromUserId;
-    if (!authToken || !toUserId) return;
-    const text = window.prompt(t.notifications_reply_prompt);
-    if (!text) return;
-    await authFetch(`${API_BASE}/api/conversations/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ toUserId, text }),
-    });
-    await markNotificationRead(notification.id);
   };
 
   const handleProfileSave = async () => {
@@ -660,7 +512,7 @@ export default function Profile() {
   return (
     <div className={`min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900 ${isSimple ? 'view-simple' : ''}`}>
       <LanguageSwitcher lang={lang} setLang={setLang} />
-      <Header t={t} lang={lang} unreadCount={unreadCount} pendingRequests={pendingRequests} />
+      <Header t={t} lang={lang} />
 
       <div className="max-w-6xl mx-auto px-6 pt-6">
         <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]">
@@ -1103,98 +955,6 @@ export default function Profile() {
             </section>
 
             <aside className="bg-white/90 border border-slate-100 rounded-2xl p-6">
-              {authToken && requestNotifications.length > 0 && (
-                  <div className={`mb-6 border border-slate-100 rounded-2xl p-4 bg-white ${isSimple ? 'simple-hide' : ''}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-semibold">{t.notifications_requests_title}</p>
-                      {pendingRequests > 0 && (
-                        <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full">
-                          {pendingRequests}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between mb-3">
-                      <button
-                        onClick={() => setRequestsPendingOnly((prev) => !prev)}
-                        className={`text-xs border px-2 py-1 rounded-lg ${
-                          requestsPendingOnly
-                            ? 'border-amber-300 bg-amber-100 text-amber-700'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        {requestsPendingOnly
-                          ? t.notifications_requests_filter_all
-                          : t.notifications_requests_filter_pending}
-                      </button>
-                      <span className="text-xs text-slate-500">{visibleRequests.length}</span>
-                    </div>
-                    <div className="space-y-3">
-                      {visibleRequests.map((item) => {
-                          const requestStatus = item.metadata?.requestStatus || 'pending';
-                          const isPendingRequest = requestStatus === 'pending';
-                          const statusLabel =
-                            requestStatus === 'accepted'
-                              ? t.notifications_request_accepted
-                              : requestStatus === 'declined'
-                                ? t.notifications_request_declined
-                                : t.notifications_request_pending;
-                          const statusClass =
-                            requestStatus === 'accepted'
-                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                              : requestStatus === 'declined'
-                                ? 'text-rose-700 bg-rose-50 border-rose-200'
-                                : 'text-slate-600 bg-slate-100 border-slate-200';
-                          return (
-                            <div
-                              key={`request-${item.id}`}
-                              className={`border rounded-xl p-3 ${
-                                item.isRead ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
-                                  {statusLabel}
-                                </span>
-                              </div>
-                              <p className="text-sm text-slate-700 mt-2">{item.body}</p>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <button
-                                  onClick={() => markNotificationRead(item.id)}
-                                  disabled={item.isRead}
-                                  className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
-                                >
-                                  {t.notifications_mark}
-                                </button>
-                                {isPendingRequest && (
-                                  <>
-                                    <button
-                                      onClick={() => acceptHubmateRequest(item)}
-                                      className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
-                                    >
-                                      {t.notifications_accept}
-                                    </button>
-                                    <button
-                                      onClick={() => declineHubmateRequest(item)}
-                                      className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
-                                    >
-                                      {t.notifications_decline}
-                                    </button>
-                                  </>
-                                )}
-                                <button
-                                  onClick={() => replyToHubmate(item)}
-                                  className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                                >
-                                  {t.notifications_reply}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
               <h2 className="text-lg font-semibold mb-4">{t.profile_about}</h2>
               <div className="text-sm text-slate-600 space-y-2">
                 <p><strong>{t.profile_city}:</strong> {(publicProfile?.city || currentUser?.city) || '-'}</p>
@@ -1228,6 +988,11 @@ export default function Profile() {
     </div>
   );
 }
-  const toggleComments = (postId) => {
-    setOpenComments((prev) => ({ ...prev, [postId]: !prev[postId] }));
-  };
+
+
+
+
+
+
+
+
