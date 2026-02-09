@@ -4,6 +4,7 @@ import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 import Footer from './components/Footer';
 import LanguageSwitcher from './components/LanguageSwitcher';
+import AuthCard from './components/AuthCard';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
@@ -77,8 +78,6 @@ export default function App() {
   const isSimple = viewMode === 'simple';
   const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const [deleteMode, setDeleteMode] = useState(false);
-  const [selectedGoalIds, setSelectedGoalIds] = useState([]);
 
   useEffect(() => {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
@@ -675,30 +674,6 @@ export default function App() {
     setMyGoals((prev) => prev.filter((goal) => goal.id !== goalId));
   };
 
-  const toggleDeleteMode = () => {
-    setDeleteMode((prev) => {
-      const next = !prev;
-      if (!next) {
-        setSelectedGoalIds([]);
-      }
-      return next;
-    });
-  };
-
-  const toggleGoalSelection = (goalId) => {
-    setSelectedGoalIds((prev) =>
-      prev.includes(goalId) ? prev.filter((id) => id !== goalId) : [...prev, goalId]
-    );
-  };
-
-  const deleteSelectedGoals = async () => {
-    if (!authToken || selectedGoalIds.length === 0) return;
-    const confirmed = window.confirm(t.goal_delete_confirm);
-    if (!confirmed) return;
-    await Promise.all(selectedGoalIds.map((goalId) => handleGoalDelete(goalId)));
-    setSelectedGoalIds([]);
-    setDeleteMode(false);
-  };
 
   const handleAvatarUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -881,22 +856,27 @@ export default function App() {
             <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
               {t.goals_title}
             </h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowGoalForm((prev) => !prev)}
-                className="text-sm text-slate-700 border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-50"
-              >
-                {t.goal_create}
-              </button>
-              <button
-                onClick={toggleDeleteMode}
-                className={`text-sm border px-3 py-2 rounded-lg ${
-                  deleteMode ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {t.goal_delete}
-              </button>
+            <div className="w-full max-w-sm">
+              <AuthCard
+                t={t}
+                lang={lang}
+                user={currentUser}
+                onLogin={handleLogin}
+                onRegister={handleRegister}
+                onLogout={handleLogout}
+                loading={authState.loading}
+                error={authState.error}
+              />
             </div>
+          </div>
+
+          <div className="mt-4">
+            <button
+              onClick={() => setShowGoalForm((prev) => !prev)}
+              className="text-sm text-slate-700 border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-50"
+            >
+              {t.goal_create}
+            </button>
           </div>
 
           {showGoalForm && (
@@ -1063,16 +1043,8 @@ export default function App() {
               <p className="text-sm text-slate-500">{t.goal_empty}</p>
             ) : (
               myGoals.map((goal) => (
-                <div key={goal.id} className={`border border-slate-100 rounded-xl p-4 ${deleteMode ? 'bg-rose-50/40' : ''}`}>
+                <div key={goal.id} className="border border-slate-100 rounded-xl p-4">
                   <div className="flex items-start gap-3">
-                    {deleteMode && (
-                      <input
-                        type="checkbox"
-                        checked={selectedGoalIds.includes(goal.id)}
-                        onChange={() => toggleGoalSelection(goal.id)}
-                        className="mt-1"
-                      />
-                    )}
                     <div className="flex-1">
                       {goal.imageUrl && (
                         <img src={goal.imageUrl} alt={goal.title} className="h-28 w-full rounded-xl object-cover mb-3" />
@@ -1150,40 +1122,26 @@ export default function App() {
                           </span>
                         ))}
                       </div>
-                      {!deleteMode && (
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            onClick={() => handleGoalEdit(goal)}
-                            className="text-sm text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                          >
-                            {t.goal_update}
-                          </button>
-                        </div>
-                      )}
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => handleGoalEdit(goal)}
+                          className="text-sm text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                        >
+                          {t.goal_update}
+                        </button>
+                        <button
+                          onClick={() => handleGoalDelete(goal.id)}
+                          className="text-sm text-rose-600 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
+                        >
+                          {t.goal_delete}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))
             )}
           </div>
-
-          {deleteMode && (
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                onClick={toggleDeleteMode}
-                className="text-sm text-slate-600 border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-50"
-              >
-                {t.cancel_button}
-              </button>
-              <button
-                onClick={deleteSelectedGoals}
-                disabled={selectedGoalIds.length === 0}
-                className="text-sm text-white bg-rose-600 px-3 py-2 rounded-lg hover:bg-rose-500 disabled:opacity-60"
-              >
-                {t.goal_delete_selected}
-              </button>
-            </div>
-          )}
         </section>
       </main>
 
