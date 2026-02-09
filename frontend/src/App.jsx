@@ -79,13 +79,17 @@ export default function App() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [toast, setToast] = useState('');
   const [currentHash, setCurrentHash] = useState(window.location.hash || '');
-  const [viewMode, setViewMode] = useState('simple');
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
 
   useEffect(() => {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem('viewMode', viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -922,7 +926,7 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen text-slate-900"
+      className={`min-h-screen text-slate-900 ${isSimple ? 'view-simple' : ''}`}
       style={{
         backgroundImage: `linear-gradient(rgba(255, 246, 232, 0.9), rgba(233, 242, 247, 0.9)), url(${backgroundImageUrl})`,
         backgroundSize: 'cover',

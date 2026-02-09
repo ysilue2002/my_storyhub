@@ -15,6 +15,8 @@ export default function Login() {
   const [authToken, setAuthToken] = useState(localStorage.getItem('authToken') || '');
   const [currentUser, setCurrentUser] = useState(null);
   const [authState, setAuthState] = useState({ loading: false, error: '' });
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
+  const isSimple = viewMode === 'simple';
 
   const t = messages[lang];
 
@@ -22,6 +24,10 @@ export default function Login() {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem('viewMode', viewMode);
+  }, [viewMode]);
 
   const authFetch = (url, options = {}) => {
     const headers = { ...(options.headers || {}) };
@@ -98,8 +104,36 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900">
+    <div className={`min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900 ${isSimple ? 'view-simple' : ''}`}>
       <LanguageSwitcher lang={lang} setLang={setLang} />
+      <div className="max-w-6xl mx-auto px-6 pt-6">
+        <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-amber-600">{t.view_title}</p>
+              <p className="text-sm text-slate-600 mt-1">{t.view_description}</p>
+            </div>
+            <div className="inline-flex rounded-full bg-slate-100 p-1">
+              <button
+                onClick={() => setViewMode('simple')}
+                className={`px-4 py-2 text-sm rounded-full transition ${
+                  isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.view_simple}
+              </button>
+              <button
+                onClick={() => setViewMode('full')}
+                className={`px-4 py-2 text-sm rounded-full transition ${
+                  !isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.view_full}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
       <main className="min-h-[70vh] flex items-center justify-center px-6">
         <div className="w-full max-w-md">
           <AuthCard

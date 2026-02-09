@@ -12,6 +12,16 @@ body {
 .font-arabic {
   font-family: 'Noto Naskh Arabic', serif;
 }
+
+.view-simple .simple-hide {
+  display: none !important;
+}
+
+.view-simple .simple-stack {
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

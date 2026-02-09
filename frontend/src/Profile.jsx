@@ -56,6 +56,8 @@ export default function Profile() {
   const [notifications, setNotifications] = useState([]);
   const socketRef = useRef(null);
   const [requestsPendingOnly, setRequestsPendingOnly] = useState(true);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
+  const isSimple = viewMode === 'simple';
 
   const t = messages[lang];
 
@@ -63,6 +65,10 @@ export default function Profile() {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem('viewMode', viewMode);
+  }, [viewMode]);
 
   const authFetch = (url, options = {}) => {
     const headers = { ...(options.headers || {}) };
@@ -652,9 +658,38 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900">
+    <div className={`min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900 ${isSimple ? 'view-simple' : ''}`}>
       <LanguageSwitcher lang={lang} setLang={setLang} />
       <Header t={t} lang={lang} unreadCount={unreadCount} pendingRequests={pendingRequests} />
+
+      <div className="max-w-6xl mx-auto px-6 pt-6">
+        <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-amber-600">{t.view_title}</p>
+              <p className="text-sm text-slate-600 mt-1">{t.view_description}</p>
+            </div>
+            <div className="inline-flex rounded-full bg-slate-100 p-1">
+              <button
+                onClick={() => setViewMode('simple')}
+                className={`px-4 py-2 text-sm rounded-full transition ${
+                  isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.view_simple}
+              </button>
+              <button
+                onClick={() => setViewMode('full')}
+                className={`px-4 py-2 text-sm rounded-full transition ${
+                  !isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.view_full}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
         {currentUser && !publicProfile && showOnboarding && (
@@ -733,7 +768,7 @@ export default function Profile() {
             />
           </div>
         ) : (
-          <div className="grid lg:grid-cols-[0.6fr_0.4fr] gap-6">
+          <div className={`grid gap-6 ${isSimple ? 'simple-stack' : 'lg:grid-cols-[0.6fr_0.4fr]'}`}>
             <section className="bg-white/90 border border-slate-100 rounded-2xl overflow-hidden">
               <div className="h-40 bg-slate-100 relative">
                 {(publicProfile?.coverUrl || currentUser?.coverUrl) && (
@@ -875,7 +910,7 @@ export default function Profile() {
                 </div>
                 )}
 
-                <div className="mt-8">
+                <div className={`mt-8 ${isSimple ? 'simple-hide' : ''}`}>
                   <h2 className="text-lg font-semibold mb-3">{t.profile_posts_title}</h2>
                   {!publicProfile && (
                     <button
@@ -1069,7 +1104,7 @@ export default function Profile() {
 
             <aside className="bg-white/90 border border-slate-100 rounded-2xl p-6">
               {authToken && requestNotifications.length > 0 && (
-                  <div className="mb-6 border border-slate-100 rounded-2xl p-4 bg-white">
+                  <div className={`mb-6 border border-slate-100 rounded-2xl p-4 bg-white ${isSimple ? 'simple-hide' : ''}`}>
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-sm font-semibold">{t.notifications_requests_title}</p>
                       {pendingRequests > 0 && (

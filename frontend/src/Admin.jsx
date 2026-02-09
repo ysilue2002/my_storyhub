@@ -42,6 +42,8 @@ export default function Admin() {
   const [sponsorQuickWeek, setSponsorQuickWeek] = useState(false);
   const [sponsorDateError, setSponsorDateError] = useState('');
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
+  const isSimple = viewMode === 'simple';
 
   const t = messages[lang];
   const ADMIN_CODE = process.env.REACT_APP_ADMIN_CODE || '';
@@ -50,6 +52,10 @@ export default function Admin() {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem('viewMode', viewMode);
+  }, [viewMode]);
 
   const authFetch = (url, options = {}) => {
     const headers = { ...(options.headers || {}) };
@@ -294,16 +300,36 @@ export default function Admin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900">
+    <div className={`min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900 ${isSimple ? 'view-simple' : ''}`}>
       <LanguageSwitcher lang={lang} setLang={setLang} />
       <header className="bg-white/80 backdrop-blur border-b border-slate-100 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className={`text-2xl font-semibold ${lang === 'ar' ? 'font-arabic' : 'font-heading'}`}>
             {t.admin_title}
           </h1>
-          <button className="text-sm text-slate-600 border border-slate-200 px-3 py-1 rounded-lg" onClick={handleLogout}>
-            {t.auth_logout}
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex rounded-full bg-slate-100 p-1">
+              <button
+                onClick={() => setViewMode('simple')}
+                className={`px-3 py-1 text-xs rounded-full transition ${
+                  isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.view_simple}
+              </button>
+              <button
+                onClick={() => setViewMode('full')}
+                className={`px-3 py-1 text-xs rounded-full transition ${
+                  !isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.view_full}
+              </button>
+            </div>
+            <button className="text-sm text-slate-600 border border-slate-200 px-3 py-1 rounded-lg" onClick={handleLogout}>
+              {t.auth_logout}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -328,7 +354,7 @@ export default function Admin() {
               </form>
             </div>
           ) : (
-          <div className="grid lg:grid-cols-[0.25fr_0.75fr] gap-6 items-start">
+          <div className={`grid gap-6 items-start ${isSimple ? '' : 'lg:grid-cols-[0.25fr_0.75fr]'}`}>
             <AuthCard
               t={t}
               lang={lang}
@@ -345,8 +371,8 @@ export default function Admin() {
                 <p className="text-xs text-slate-500 mt-2">{t.admin_forbidden}</p>
               </div>
             ) : (
-              <div className="grid lg:grid-cols-[0.25fr_0.75fr] gap-6">
-                <aside className="bg-white/90 border border-slate-100 rounded-2xl p-5 sticky top-24 h-fit">
+              <div className={`grid gap-6 ${isSimple ? '' : 'lg:grid-cols-[0.25fr_0.75fr]'}`}>
+                <aside className={`bg-white/90 border border-slate-100 rounded-2xl p-5 ${isSimple ? '' : 'sticky top-24 h-fit'}`}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold">{t.admin_menu_title}</h3>
                     <button
@@ -407,7 +433,7 @@ export default function Admin() {
                     </a>
                   </nav>
                 </aside>
-                <div className="grid lg:grid-cols-2 gap-6">
+                <div className={`grid gap-6 ${isSimple ? '' : 'lg:grid-cols-2'}`}>
                 <div id="admin-users" className="bg-white/90 border border-slate-100 rounded-2xl p-5 scroll-mt-24">
                   <h3 className="text-lg font-semibold mb-3">{t.admin_users}</h3>
                   <div className="space-y-2 max-h-80 overflow-y-auto">
