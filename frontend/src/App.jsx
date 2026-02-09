@@ -62,6 +62,8 @@ export default function App() {
   });
   const [ads, setAds] = useState([]);
   const [hubmateSuggestions, setHubmateSuggestions] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [hubmateFilters, setHubmateFilters] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('hubmateFilters') || '{}');
@@ -139,22 +141,28 @@ export default function App() {
     loadGoals();
   }, []);
 
+  const fetchUsers = async (queryValue) => {
+    try {
+      const query = String(queryValue || '').trim();
+      const url = query
+        ? `${API_BASE}/api/users?q=${encodeURIComponent(query)}`
+        : `${API_BASE}/api/users`;
+      const response = await fetch(url);
+      const data = await response.json();
+      setUsers(Array.isArray(data) ? data : []);
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      setUsers([]);
+      return [];
+    }
+  };
+
   useEffect(() => {
     let active = true;
     const loadUsers = async () => {
-      try {
-        const query = searchQuery.trim();
-        const url = query
-          ? `${API_BASE}/api/users?q=${encodeURIComponent(query)}`
-          : `${API_BASE}/api/users`;
-        const response = await fetch(url);
-        const data = await response.json();
-        if (!active) return;
-        setUsers(Array.isArray(data) ? data : []);
-      } catch (error) {
-        if (!active) return;
-        setUsers([]);
-      }
+      const data = await fetchUsers(searchQuery);
+      if (!active) return;
+      setUsers(Array.isArray(data) ? data : []);
     };
 
     loadUsers();
@@ -434,9 +442,20 @@ export default function App() {
     return users;
   }, [users, normalizedQuery]);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setSearchQuery('');
+      setSearchModalOpen(false);
+      setSelectedUser(null);
+      return;
+    }
+    const results = await fetchUsers(searchQuery);
+    if (results.length > 0) {
+      setSelectedUser(results[0]);
+      setSearchModalOpen(true);
+    } else {
+      setSelectedUser(null);
+      setSearchModalOpen(true);
     }
   };
 
@@ -470,6 +489,44 @@ export default function App() {
       });
     } catch (error) {
       // MVP: on ne bloque pas l'UX
+    }
+  };
+
+  const handleStartConversation = async (user) => {
+    if (!authToken) {
+      setAuthState({ loading: false, error: t.auth_required });
+      return;
+    }
+    const text = window.prompt(t.message_prompt || 'Votre message ?') || '';
+    if (!text.trim()) return;
+    try {
+      await authFetch(`${API_BASE}/api/conversations/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toUserId: user.id, text: text.trim() }),
+      });
+      showToast(t.message_sent || 'Message envoyé.');
+    } catch (error) {
+      showToast(t.error_generic || 'Erreur.');
+    }
+  };
+
+  const handleSendDirectMessage = async (user) => {
+    if (!authToken) {
+      setAuthState({ loading: false, error: t.auth_required });
+      return;
+    }
+    const text = window.prompt(t.messages_send_placeholder || 'Votre message') || '';
+    if (!text.trim()) return;
+    try {
+      await authFetch(`${API_BASE}/api/conversations/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toUserId: user.id, text: text.trim() }),
+      });
+      showToast(t.messages_sent || 'Message envoyé');
+    } catch (error) {
+      showToast(t.error_required || 'Erreur');
     }
   };
 
@@ -754,6 +811,91 @@ export default function App() {
         hubmatesCount={alerts.pendingRequests}
         messagesCount={alerts.unreadMessages}
       />
+
+      {searchModalOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/40 flex items-center justify-center px-6"
+          onClick={() => setSearchModalOpen(false)}
+        >
+          <div
+            className="bg-white w-full max-w-xl rounded-2xl shadow-xl p-6 relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSearchModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-slate-700"
+            >
+              ✕
+            </button>
+            {selectedUser ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-full bg-slate-100 overflow-hidden">
+                    {selectedUser.avatarUrl ? (
+                      <img src={selectedUser.avatarUrl} alt={selectedUser.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-slate-400 text-xl">
+                        {selectedUser.name?.slice(0, 1) || '?'}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">{selectedUser.name}</h3>
+                    <p className="text-sm text-slate-500">{selectedUser.handle}</p>
+                    <p className="text-sm text-slate-500">
+                      {[selectedUser.city, selectedUser.country].filter(Boolean).join(', ')}
+                    </p>
+                  </div>
+                </div>
+                {selectedUser.bio && (
+                  <p className="text-sm text-slate-600">{selectedUser.bio}</p>
+                )}
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {(selectedUser.goals || []).map((goal) => (
+                    <span key={`goal-${goal}`} className="px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                      {goal}
+                    </span>
+                  ))}
+                  {(selectedUser.interests || []).map((interest) => (
+                    <span key={`interest-${interest}`} className="px-2 py-1 rounded-full bg-sky-50 text-sky-700">
+                      {interest}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await handleConnect(selectedUser);
+                      showToast(t.hubmate_request_sent || 'Demande envoyée.');
+                    }}
+                    disabled={!authToken}
+                    className="flex-1 bg-amber-600 text-white px-4 py-3 rounded-xl hover:bg-amber-500 transition disabled:opacity-60"
+                  >
+                    {t.hubmate_add || 'Ajouter Hubmate'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleStartConversation(selectedUser)}
+                    disabled={!authToken}
+                    className="flex-1 border border-slate-200 px-4 py-3 rounded-xl hover:bg-slate-50 transition disabled:opacity-60"
+                  >
+                    {t.message_send || 'Envoyer message'}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400">
+                  {t.hubmate_request_note || 'La demande doit être acceptée avant de devenir Hubmates.'}
+                </p>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-sm text-slate-500">{t.search_no_results || 'Aucun résultat.'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <main id="home" className="max-w-6xl mx-auto px-6 pb-16 pt-6">
         {status.error && (
