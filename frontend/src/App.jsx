@@ -72,6 +72,7 @@ export default function App() {
   const [currentHash, setCurrentHash] = useState(window.location.hash || '');
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
+  const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedGoalIds, setSelectedGoalIds] = useState([]);
@@ -99,6 +100,23 @@ export default function App() {
       headers.Authorization = `Bearer ${authToken}`;
     }
     return fetch(url, { ...options, headers });
+  };
+
+  const loadAlerts = async () => {
+    if (!authToken) {
+      setAlerts({ pendingRequests: 0, unreadMessages: 0 });
+      return;
+    }
+    try {
+      const response = await authFetch(`${API_BASE}/api/alerts-summary`);
+      const data = await response.json();
+      setAlerts({
+        pendingRequests: Number(data.pendingRequests) || 0,
+        unreadMessages: Number(data.unreadMessages) || 0,
+      });
+    } catch (error) {
+      setAlerts({ pendingRequests: 0, unreadMessages: 0 });
+    }
   };
 
   useEffect(() => {
@@ -270,12 +288,21 @@ export default function App() {
           conv.id === message.conversationId ? { ...conv, lastMessage: message.text } : conv
         )
       );
+      loadAlerts();
+    });
+
+    socket.on('notification:new', () => {
+      loadAlerts();
     });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
+  }, [authToken]);
+
+  useEffect(() => {
+    loadAlerts();
   }, [authToken]);
 
   useEffect(() => {
@@ -804,7 +831,13 @@ export default function App() {
           {toast}
         </div>
       )}
-      <Header t={t} lang={lang} rightSlot={headerSearch} />
+      <Header
+        t={t}
+        lang={lang}
+        rightSlot={headerSearch}
+        hubmatesCount={alerts.pendingRequests}
+        messagesCount={alerts.unreadMessages}
+      />
 
       <main id="home" className="max-w-6xl mx-auto px-6 pb-16 pt-6">
         {status.error && (

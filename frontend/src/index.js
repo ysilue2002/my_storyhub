@@ -5,12 +5,28 @@ import App from './App';
 import Admin from './Admin';
 import Login from './Login';
 import Profile from './Profile';
+import Hubmates from './Hubmates';
+import Messages from './Messages';
 const root = ReactDOM.createRoot(document.getElementById('root'));
 const isAdminRoute = window.location.pathname.startsWith('/admin') || window.__ADMIN_PAGE__ === true;
 const isLoginRoute = window.location.pathname.startsWith('/login');
 const isProfileRoute = window.location.pathname.startsWith('/profile');
+const isHubmatesRoute = window.location.pathname.startsWith('/hubmates');
+const isMessagesRoute = window.location.pathname.startsWith('/messages');
 root.render(
   <React.StrictMode>
-    {isAdminRoute ? <Admin /> : isLoginRoute ? <Login /> : isProfileRoute ? <Profile /> : <App />}
+    {isAdminRoute ? (
+      <Admin />
+    ) : isLoginRoute ? (
+      <Login />
+    ) : isProfileRoute ? (
+      <Profile />
+    ) : isHubmatesRoute ? (
+      <Hubmates />
+    ) : isMessagesRoute ? (
+      <Messages />
+    ) : (
+      <App />
+    )}
   </React.StrictMode>
 );

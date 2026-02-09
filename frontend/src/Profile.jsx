@@ -54,10 +54,41 @@ export default function Profile() {
   const [messageText, setMessageText] = useState('');
   const [messageStatus, setMessageStatus] = useState('');
   const socketRef = useRef(null);
+  const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
 
   const t = messages[lang];
+
+  useEffect(() => {
+    document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+    document.documentElement.setAttribute('lang', lang);
+  }, [lang]);
+
+  const authFetch = (url, options = {}) => {
+    const headers = { ...(options.headers || {}) };
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`;
+    }
+    return fetch(url, { ...options, headers });
+  };
+
+  const loadAlerts = async () => {
+    if (!authToken) {
+      setAlerts({ pendingRequests: 0, unreadMessages: 0 });
+      return;
+    }
+    try {
+      const response = await authFetch(`${API_BASE}/api/alerts-summary`);
+      const data = await response.json();
+      setAlerts({
+        pendingRequests: Number(data.pendingRequests) || 0,
+        unreadMessages: Number(data.unreadMessages) || 0,
+      });
+    } catch (error) {
+      setAlerts({ pendingRequests: 0, unreadMessages: 0 });
+    }
+  };
 
   useEffect(() => {
     if (!authToken) {
@@ -70,11 +101,17 @@ export default function Profile() {
 
     const socket = io(WS_BASE, { auth: { token: authToken } });
     socketRef.current = socket;
+    socket.on('message:new', () => loadAlerts());
+    socket.on('notification:new', () => loadAlerts());
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
+  }, [authToken]);
+
+  useEffect(() => {
+    loadAlerts();
   }, [authToken]);
 
   useEffect(() => {
@@ -512,7 +549,12 @@ export default function Profile() {
   return (
     <div className={`min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900 ${isSimple ? 'view-simple' : ''}`}>
       <LanguageSwitcher lang={lang} setLang={setLang} />
-      <Header t={t} lang={lang} />
+      <Header
+        t={t}
+        lang={lang}
+        hubmatesCount={alerts.pendingRequests}
+        messagesCount={alerts.unreadMessages}
+      />
 
       <div className="max-w-6xl mx-auto px-6 pt-6">
         <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]">

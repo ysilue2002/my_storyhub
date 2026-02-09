@@ -283,6 +283,10 @@ const initDb = async () => {
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS end_date DATE;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS steps JSONB DEFAULT '[]'::jsonb;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'normal';`);
+  await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_by INTEGER[] DEFAULT '{}';`);
+  await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_by INTEGER[] DEFAULT '{}';`);
+  await pool.query(`UPDATE messages SET read_by = '{}' WHERE read_by IS NULL;`);
+  await pool.query(`UPDATE messages SET deleted_by = '{}' WHERE deleted_by IS NULL;`);
   await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS is_sponsor_of_day BOOLEAN DEFAULT FALSE;`);
   await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS sponsor_start DATE;`);
   await pool.query(`ALTER TABLE ads ADD COLUMN IF NOT EXISTS sponsor_end DATE;`);
@@ -310,7 +314,18 @@ const initDb = async () => {
       conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
       from_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       text TEXT NOT NULL,
-      sent_at TIMESTAMP DEFAULT NOW()
+      sent_at TIMESTAMP DEFAULT NOW(),
+      read_by INTEGER[] DEFAULT '{}',
+      deleted_by INTEGER[] DEFAULT '{}'
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blocked_users (
+      blocker_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      blocked_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (blocker_id, blocked_id)
     );
   `);
 
@@ -1242,9 +1257,10 @@ app.post('/api/conversations/start', authRequired, ensureNotSuspended, async (re
 
   const msgResult = await pool.query(
     `
-      INSERT INTO messages (conversation_id, from_user_id, text)
-      VALUES ($1, $2, $3)
-      RETURNING id, conversation_id AS "conversationId", from_user_id AS "fromUserId", text, sent_at AS "sentAt"
+      INSERT INTO messages (conversation_id, from_user_id, text, read_by)
+      VALUES ($1, $2, $3, ARRAY[$2]::int[])
+      RETURNING id, conversation_id AS "conversationId", from_user_id AS "fromUserId",
+                text, sent_at AS "sentAt", read_by AS "readBy"
     `,
     [conversationId, req.user.id, text]
   );
@@ -1263,14 +1279,24 @@ app.get('/api/messages', authRequired, async (req, res) => {
     return res.status(400).json({ error: 'conversationId requis.' });
   }
 
+  await pool.query(
+    `
+      UPDATE messages
+      SET read_by = array_append(read_by, $2)
+      WHERE conversation_id = $1 AND NOT (read_by @> ARRAY[$2]::int[]) AND from_user_id <> $2
+    `,
+    [conversationId, req.user.id]
+  );
+
   const result = await pool.query(
     `
-      SELECT id, conversation_id AS "conversationId", from_user_id AS "fromUserId", text, sent_at AS "sentAt"
+      SELECT id, conversation_id AS "conversationId", from_user_id AS "fromUserId",
+             text, sent_at AS "sentAt", read_by AS "readBy"
       FROM messages
-      WHERE conversation_id = $1
+      WHERE conversation_id = $1 AND NOT (deleted_by @> ARRAY[$2]::int[])
       ORDER BY sent_at ASC
     `,
-    [conversationId]
+    [conversationId, req.user.id]
   );
   res.json(result.rows);
 });
@@ -1283,9 +1309,10 @@ app.post('/api/messages', authRequired, ensureNotSuspended, async (req, res) => 
 
   const result = await pool.query(
     `
-      INSERT INTO messages (conversation_id, from_user_id, text)
-      VALUES ($1, $2, $3)
-      RETURNING id, conversation_id AS "conversationId", from_user_id AS "fromUserId", text, sent_at AS "sentAt"
+      INSERT INTO messages (conversation_id, from_user_id, text, read_by)
+      VALUES ($1, $2, $3, ARRAY[$2]::int[])
+      RETURNING id, conversation_id AS "conversationId", from_user_id AS "fromUserId",
+                text, sent_at AS "sentAt", read_by AS "readBy"
     `,
     [conversationId, req.user.id, text]
   );
@@ -1323,6 +1350,108 @@ app.post('/api/messages', authRequired, ensureNotSuspended, async (req, res) => 
   }
 
   res.status(201).json(message);
+});
+
+app.delete('/api/messages/:id', authRequired, async (req, res) => {
+  const { id } = req.params;
+  const result = await pool.query(
+    `
+      UPDATE messages m
+      SET deleted_by = array_append(deleted_by, $1)
+      FROM conversation_participants cp
+      WHERE m.id = $2
+        AND cp.conversation_id = m.conversation_id
+        AND cp.user_id = $1
+        AND NOT (deleted_by @> ARRAY[$1]::int[])
+      RETURNING m.id
+    `,
+    [req.user.id, id]
+  );
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: 'Message introuvable.' });
+  }
+  res.status(204).send();
+});
+
+app.get('/api/messages/threads', authRequired, async (req, res) => {
+  const box = String(req.query.box || 'inbox');
+  const blockedResult = await pool.query(
+    'SELECT blocked_id AS "blockedId" FROM blocked_users WHERE blocker_id = $1',
+    [req.user.id]
+  );
+  const blockedIds = blockedResult.rows.map((row) => row.blockedId);
+
+  const result = await pool.query(
+    `
+      SELECT c.id, c.title,
+             (SELECT m.text FROM messages m
+              WHERE m.conversation_id = c.id AND NOT (m.deleted_by @> ARRAY[$1]::int[])
+              ORDER BY m.sent_at DESC LIMIT 1) AS "lastMessage",
+             (SELECT m.from_user_id FROM messages m
+              WHERE m.conversation_id = c.id AND NOT (m.deleted_by @> ARRAY[$1]::int[])
+              ORDER BY m.sent_at DESC LIMIT 1) AS "lastFromUserId",
+             (SELECT m.sent_at FROM messages m
+              WHERE m.conversation_id = c.id AND NOT (m.deleted_by @> ARRAY[$1]::int[])
+              ORDER BY m.sent_at DESC LIMIT 1) AS "lastSentAt",
+             (SELECT COUNT(*) FROM messages m
+              WHERE m.conversation_id = c.id
+                AND m.from_user_id <> $1
+                AND NOT (m.read_by @> ARRAY[$1]::int[])
+                AND NOT (m.deleted_by @> ARRAY[$1]::int[])
+             ) AS "unreadCount"
+      FROM conversations c
+      JOIN conversation_participants cp ON cp.conversation_id = c.id
+      WHERE cp.user_id = $1
+    `,
+    [req.user.id]
+  );
+
+  let threads = result.rows.map((row) => ({
+    ...row,
+    unreadCount: Number(row.unreadCount) || 0,
+  }));
+
+  if (blockedIds.length > 0) {
+    if (box === 'spam') {
+      threads = threads.filter((item) => blockedIds.includes(item.lastFromUserId));
+    } else {
+      threads = threads.filter((item) => !blockedIds.includes(item.lastFromUserId));
+    }
+  } else if (box === 'spam') {
+    threads = [];
+  }
+
+  threads.sort((a, b) => new Date(b.lastSentAt || 0) - new Date(a.lastSentAt || 0));
+  res.json(threads);
+});
+
+app.get('/api/alerts-summary', authRequired, async (req, res) => {
+  const pendingResult = await pool.query(
+    'SELECT COUNT(*)::int AS count FROM connection_requests WHERE to_user_id = $1 AND status = $2',
+    [req.user.id, 'pending']
+  );
+  const blockedResult = await pool.query(
+    'SELECT blocked_id AS "blockedId" FROM blocked_users WHERE blocker_id = $1',
+    [req.user.id]
+  );
+  const blockedIds = blockedResult.rows.map((row) => row.blockedId);
+  const unreadResult = await pool.query(
+    `
+      SELECT COUNT(*)::int AS count
+      FROM messages m
+      JOIN conversation_participants cp ON cp.conversation_id = m.conversation_id
+      WHERE cp.user_id = $1
+        AND m.from_user_id <> $1
+        AND NOT (m.read_by @> ARRAY[$1]::int[])
+        AND NOT (m.deleted_by @> ARRAY[$1]::int[])
+        AND ($2::int[] IS NULL OR NOT (m.from_user_id = ANY($2::int[])))
+    `,
+    [req.user.id, blockedIds.length ? blockedIds : null]
+  );
+  res.json({
+    pendingRequests: pendingResult.rows[0]?.count || 0,
+    unreadMessages: unreadResult.rows[0]?.count || 0,
+  });
 });
 
 app.get('/api/notifications', authRequired, async (req, res) => {
@@ -1369,6 +1498,95 @@ app.get('/api/connection-requests', authRequired, async (req, res) => {
     [req.user.id]
   );
   res.json(result.rows);
+});
+
+app.get('/api/hubmates', authRequired, async (req, res) => {
+  const result = await pool.query(
+    `
+      SELECT u.id, u.name, u.handle, u.city, u.bio, u.avatar_url AS "avatarUrl"
+      FROM connection_requests cr
+      JOIN users u ON u.id = CASE
+        WHEN cr.from_user_id = $1 THEN cr.to_user_id
+        ELSE cr.from_user_id
+      END
+      WHERE (cr.from_user_id = $1 OR cr.to_user_id = $1)
+        AND cr.status = 'accepted'
+      ORDER BY u.name ASC
+    `,
+    [req.user.id]
+  );
+  res.json(result.rows.map((row) => ({ ...row, avatarUrl: normalizeFileUrl(row.avatarUrl) })));
+});
+
+app.get('/api/hubmates/requests', authRequired, async (req, res) => {
+  const result = await pool.query(
+    `
+      SELECT cr.id, cr.message, cr.status, cr.created_at AS "createdAt",
+             u.id AS "userId", u.name, u.handle, u.city, u.avatar_url AS "avatarUrl"
+      FROM connection_requests cr
+      JOIN users u ON u.id = cr.from_user_id
+      WHERE cr.to_user_id = $1 AND cr.status = 'pending'
+      ORDER BY cr.created_at DESC
+    `,
+    [req.user.id]
+  );
+  res.json(result.rows.map((row) => ({ ...row, avatarUrl: normalizeFileUrl(row.avatarUrl) })));
+});
+
+app.delete('/api/hubmates/:userId', authRequired, async (req, res) => {
+  const { userId } = req.params;
+  const result = await pool.query(
+    `
+      DELETE FROM connection_requests
+      WHERE status = 'accepted'
+        AND ((from_user_id = $1 AND to_user_id = $2) OR (from_user_id = $2 AND to_user_id = $1))
+      RETURNING id
+    `,
+    [req.user.id, userId]
+  );
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: 'Hubmate introuvable.' });
+  }
+  res.status(204).send();
+});
+
+app.get('/api/blocks', authRequired, async (req, res) => {
+  const result = await pool.query(
+    `
+      SELECT u.id, u.name, u.handle, u.city, u.avatar_url AS "avatarUrl"
+      FROM blocked_users b
+      JOIN users u ON u.id = b.blocked_id
+      WHERE b.blocker_id = $1
+      ORDER BY u.name ASC
+    `,
+    [req.user.id]
+  );
+  res.json(result.rows.map((row) => ({ ...row, avatarUrl: normalizeFileUrl(row.avatarUrl) })));
+});
+
+app.post('/api/blocks', authRequired, async (req, res) => {
+  const { blockedUserId } = req.body || {};
+  if (!blockedUserId) {
+    return res.status(400).json({ error: 'blockedUserId requis.' });
+  }
+  await pool.query(
+    `
+      INSERT INTO blocked_users (blocker_id, blocked_id)
+      VALUES ($1, $2)
+      ON CONFLICT DO NOTHING
+    `,
+    [req.user.id, blockedUserId]
+  );
+  res.status(201).json({ ok: true });
+});
+
+app.delete('/api/blocks/:blockedUserId', authRequired, async (req, res) => {
+  const { blockedUserId } = req.params;
+  await pool.query(
+    `DELETE FROM blocked_users WHERE blocker_id = $1 AND blocked_id = $2`,
+    [req.user.id, blockedUserId]
+  );
+  res.status(204).send();
 });
 
 app.post('/api/connection-requests/:id/accept', authRequired, async (req, res) => {
