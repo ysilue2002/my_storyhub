@@ -172,13 +172,31 @@ export default function Admin() {
     }
   };
 
-  const handleRegister = async ({ name, email, password }) => {
+  const handleRegister = async ({ name, email, password, gender, age, country, city, bio, availability, goals, interests }) => {
     try {
       setAuthState({ loading: true, error: '' });
       const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          gender,
+          age,
+          country,
+          city,
+          bio,
+          availability,
+          goals: String(goals || '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+          interests: String(interests || '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {

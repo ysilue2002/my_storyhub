@@ -5,6 +5,14 @@ export default function AuthCard({ t, lang, user, onLogin, onRegister, onLogout,
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [gender, setGender] = useState('');
+  const [age, setAge] = useState('');
+  const [country, setCountry] = useState('');
+  const [city, setCity] = useState('');
+  const [bio, setBio] = useState('');
+  const [availability, setAvailability] = useState('');
+  const [goals, setGoals] = useState('');
+  const [interests, setInterests] = useState('');
   const [localError, setLocalError] = useState('');
 
   const handleSubmit = async (event) => {
@@ -25,7 +33,19 @@ export default function AuthCard({ t, lang, user, onLogin, onRegister, onLogout,
     if (mode === 'login') {
       await onLogin({ email, password });
     } else {
-      await onRegister({ name, email, password });
+      await onRegister({
+        name,
+        email,
+        password,
+        gender,
+        age,
+        country,
+        city,
+        bio,
+        availability,
+        goals,
+        interests,
+      });
     }
   };
 
@@ -81,6 +101,70 @@ export default function AuthCard({ t, lang, user, onLogin, onRegister, onLogout,
               lang === 'ar' ? 'font-arabic text-right' : ''
             }`}
           />
+        )}
+        {mode === 'register' && (
+          <>
+            <select
+              value={gender}
+              onChange={(event) => setGender(event.target.value)}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+            >
+              <option value="">{t.profile_gender}</option>
+              <option value="female">{t.gender_female}</option>
+              <option value="male">{t.gender_male}</option>
+              <option value="other">{t.gender_other}</option>
+            </select>
+            <input
+              type="number"
+              min="0"
+              value={age}
+              onChange={(event) => setAge(event.target.value)}
+              placeholder={t.profile_age}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+            />
+            <input
+              type="text"
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
+              placeholder={t.profile_country}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+            />
+            <input
+              type="text"
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              placeholder={t.profile_city}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+            />
+            <textarea
+              rows={3}
+              value={bio}
+              onChange={(event) => setBio(event.target.value)}
+              placeholder={t.profile_bio}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+            />
+            <input
+              type="text"
+              value={goals}
+              onChange={(event) => setGoals(event.target.value)}
+              placeholder={t.profile_goals_input}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+            />
+            <input
+              type="text"
+              value={interests}
+              onChange={(event) => setInterests(event.target.value)}
+              placeholder={t.profile_interests_input}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+            />
+            <input
+              type="text"
+              value={availability}
+              onChange={(event) => setAvailability(event.target.value)}
+              placeholder={t.profile_availability}
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+            />
+          </>
         )}
         <input
           type="email"

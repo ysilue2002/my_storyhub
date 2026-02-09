@@ -33,6 +33,9 @@ export default function App() {
   const [uploadStatus, setUploadStatus] = useState({ error: '', avatar: false, cover: false, goal: false });
   const [profileForm, setProfileForm] = useState({
     name: '',
+    gender: '',
+    age: '',
+    country: '',
     city: '',
     bio: '',
     availability: '',
@@ -203,6 +206,9 @@ export default function App() {
         setCurrentUser(null);
         setProfileForm({
           name: '',
+          gender: '',
+          age: '',
+          country: '',
           city: '',
           bio: '',
           availability: '',
@@ -220,6 +226,9 @@ export default function App() {
         setCurrentUser(data);
         setProfileForm({
           name: data.name || '',
+          gender: data.gender || '',
+          age: data.age ?? '',
+          country: data.country || '',
           city: data.city || '',
           bio: data.bio || '',
           availability: data.availability || '',
@@ -530,6 +539,9 @@ export default function App() {
     }
     const payload = {
       name: profileForm.name,
+      gender: profileForm.gender,
+      age: profileForm.age,
+      country: profileForm.country,
       city: profileForm.city,
       bio: profileForm.bio,
       availability: profileForm.availability,
@@ -768,13 +780,31 @@ export default function App() {
     }
   };
 
-  const handleRegister = async ({ name, email, password }) => {
+  const handleRegister = async ({ name, email, password, gender, age, country, city, bio, availability, goals, interests }) => {
     try {
       setAuthState({ loading: true, error: '' });
       const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          gender,
+          age,
+          country,
+          city,
+          bio,
+          availability,
+          goals: String(goals || '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+          interests: String(interests || '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {

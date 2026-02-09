@@ -31,6 +31,9 @@ export default function Profile() {
   });
   const [profileForm, setProfileForm] = useState({
     name: '',
+    gender: '',
+    age: '',
+    country: '',
     city: '',
     bio: '',
     availability: '',
@@ -120,6 +123,41 @@ export default function Profile() {
 
   useEffect(() => {
     loadAlerts();
+  }, [authToken]);
+
+  useEffect(() => {
+    const loadMe = async () => {
+      if (!authToken) {
+        setCurrentUser(null);
+        return;
+      }
+      try {
+        const response = await authFetch(`${API_BASE}/api/me`);
+        if (!response.ok) throw new Error('Auth failed');
+        const data = await response.json();
+        setCurrentUser(data);
+        setProfileForm({
+          name: data.name || '',
+          gender: data.gender || '',
+          age: data.age ?? '',
+          country: data.country || '',
+          city: data.city || '',
+          bio: data.bio || '',
+          availability: data.availability || '',
+          goals: (data.goals || []).join(', '),
+          interests: (data.interests || []).join(', '),
+        });
+        if (data.goals?.length || data.interests?.length || data.availability) {
+          localStorage.setItem('onboardingDone', 'true');
+          setShowOnboarding(false);
+        }
+      } catch (error) {
+        setCurrentUser(null);
+        setAuthToken('');
+        localStorage.removeItem('authToken');
+      }
+    };
+    loadMe();
   }, [authToken]);
 
   useEffect(() => {
@@ -255,13 +293,31 @@ export default function Profile() {
     }
   };
 
-  const handleRegister = async ({ name, email, password }) => {
+  const handleRegister = async ({ name, email, password, gender, age, country, city, bio, availability, goals, interests }) => {
     try {
       setAuthState({ loading: true, error: '' });
       const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          gender,
+          age,
+          country,
+          city,
+          bio,
+          availability,
+          goals: String(goals || '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+          interests: String(interests || '')
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -289,6 +345,9 @@ export default function Profile() {
     }
     const payload = {
       name: profileForm.name,
+      gender: profileForm.gender,
+      age: profileForm.age,
+      country: profileForm.country,
       city: profileForm.city,
       bio: profileForm.bio,
       availability: profileForm.availability,
@@ -780,6 +839,31 @@ export default function Profile() {
                     placeholder={t.auth_name}
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
                   />
+                  <select
+                    value={profileForm.gender}
+                    onChange={(event) => setProfileForm({ ...profileForm, gender: event.target.value })}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                  >
+                    <option value="">{t.profile_gender}</option>
+                    <option value="female">{t.gender_female}</option>
+                    <option value="male">{t.gender_male}</option>
+                    <option value="other">{t.gender_other}</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    value={profileForm.age}
+                    onChange={(event) => setProfileForm({ ...profileForm, age: event.target.value })}
+                    placeholder={t.profile_age}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                  />
+                  <input
+                    type="text"
+                    value={profileForm.country}
+                    onChange={(event) => setProfileForm({ ...profileForm, country: event.target.value })}
+                    placeholder={t.profile_country}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                  />
                   <input
                     type="text"
                     value={profileForm.city}
@@ -1019,6 +1103,9 @@ export default function Profile() {
             <aside className="bg-white/90 border border-slate-100 rounded-2xl p-6">
               <h2 className="text-lg font-semibold mb-4">{t.profile_about}</h2>
               <div className="text-sm text-slate-600 space-y-2">
+                <p><strong>{t.profile_gender}:</strong> {(publicProfile?.gender || currentUser?.gender) || '-'}</p>
+                <p><strong>{t.profile_age}:</strong> {(publicProfile?.age ?? currentUser?.age) || '-'}</p>
+                <p><strong>{t.profile_country}:</strong> {(publicProfile?.country || currentUser?.country) || '-'}</p>
                 <p><strong>{t.profile_city}:</strong> {(publicProfile?.city || currentUser?.city) || '-'}</p>
                 <p><strong>{t.profile_availability}:</strong> {(publicProfile?.availability || currentUser?.availability) || '-'}</p>
                 <p><strong>{t.profile_bio}:</strong> {(publicProfile?.bio || currentUser?.bio) || '-'}</p>

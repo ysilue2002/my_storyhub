@@ -190,6 +190,9 @@ const initDb = async () => {
       password_hash TEXT NOT NULL,
       role TEXT DEFAULT 'user',
       handle TEXT,
+      gender TEXT,
+      age INTEGER,
+      country TEXT,
       city TEXT,
       bio TEXT,
       availability TEXT,
@@ -278,6 +281,9 @@ const initDb = async () => {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_url TEXT;`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_until TIMESTAMP;`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT;`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS image_url TEXT;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS start_date DATE;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS end_date DATE;`);
@@ -552,9 +558,15 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body || {};
+  const { name, email, password, gender, age, country, city, bio, availability, goals, interests } = req.body || {};
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'name, email et password requis.' });
+  }
+  const parsedAge = age !== undefined && age !== null && `${age}` !== ''
+    ? Number(age)
+    : null;
+  if (parsedAge !== null && Number.isNaN(parsedAge)) {
+    return res.status(400).json({ error: 'age invalide.' });
   }
 
   const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
@@ -566,11 +578,25 @@ app.post('/api/auth/register', async (req, res) => {
   const handle = `@${email.split('@')[0]}`;
   const result = await pool.query(
     `
-      INSERT INTO users (name, email, password_hash, handle, role)
-      VALUES ($1, $2, $3, $4, 'user')
-      RETURNING id, name, email, handle, city, bio, availability, goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role
+      INSERT INTO users (name, email, password_hash, handle, role, gender, age, country, city, bio, availability, goals, interests)
+      VALUES ($1, $2, $3, $4, 'user', $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id, name, email, handle, gender, age, country, city, bio, availability,
+                goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role
     `,
-    [name, email, passwordHash, handle]
+    [
+      name,
+      email,
+      passwordHash,
+      handle,
+      gender || null,
+      parsedAge,
+      country || null,
+      city || null,
+      bio || null,
+      availability || null,
+      goals || [],
+      interests || [],
+    ]
   );
 
   const user = result.rows[0];
@@ -609,6 +635,9 @@ app.post('/api/auth/login', async (req, res) => {
     name: user.name,
     email: user.email,
     handle: user.handle,
+    gender: user.gender,
+    age: user.age,
+    country: user.country,
     city: user.city,
     bio: user.bio,
     availability: user.availability,
@@ -624,7 +653,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/me', authRequired, async (req, res) => {
   const result = await pool.query(
-    'SELECT id, name, email, handle, city, bio, availability, goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role FROM users WHERE id = $1',
+    'SELECT id, name, email, handle, gender, age, country, city, bio, availability, goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role FROM users WHERE id = $1',
     [req.user.id]
   );
   if (result.rows.length === 0) {
@@ -640,7 +669,7 @@ app.get('/api/users/:id', async (req, res) => {
   const { id } = req.params;
   const result = await pool.query(
     `
-      SELECT id, name, handle, city, bio, availability, goals, interests,
+      SELECT id, name, handle, gender, age, country, city, bio, availability, goals, interests,
              avatar_url AS "avatarUrl", cover_url AS "coverUrl"
       FROM users
       WHERE id = $1
@@ -657,20 +686,29 @@ app.get('/api/users/:id', async (req, res) => {
 });
 
 app.put('/api/me', authRequired, async (req, res) => {
-  const { name, city, bio, availability, goals, interests } = req.body || {};
+  const { name, gender, age, country, city, bio, availability, goals, interests } = req.body || {};
+  const parsedAge = age !== undefined && age !== null && `${age}` !== ''
+    ? Number(age)
+    : null;
+  if (parsedAge !== null && Number.isNaN(parsedAge)) {
+    return res.status(400).json({ error: 'age invalide.' });
+  }
   const result = await pool.query(
     `
       UPDATE users
       SET name = COALESCE($1, name),
-          city = COALESCE($2, city),
-          bio = COALESCE($3, bio),
-          availability = COALESCE($4, availability),
-          goals = COALESCE($5, goals),
-          interests = COALESCE($6, interests)
-      WHERE id = $7
-      RETURNING id, name, email, handle, city, bio, availability, goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role
+          gender = COALESCE($2, gender),
+          age = COALESCE($3, age),
+          country = COALESCE($4, country),
+          city = COALESCE($5, city),
+          bio = COALESCE($6, bio),
+          availability = COALESCE($7, availability),
+          goals = COALESCE($8, goals),
+          interests = COALESCE($9, interests)
+      WHERE id = $10
+      RETURNING id, name, email, handle, gender, age, country, city, bio, availability, goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role
     `,
-    [name, city, bio, availability, goals, interests, req.user.id]
+    [name, gender, parsedAge, country, city, bio, availability, goals, interests, req.user.id]
   );
   res.json(result.rows[0]);
 });
@@ -743,7 +781,7 @@ app.post('/api/me/cover', authRequired, coverUpload.single('file'), async (req, 
 app.get('/api/users', async (req, res) => {
   const query = (req.query.q || '').toLowerCase();
   const result = await pool.query(
-    'SELECT id, name, handle, city, bio, availability, goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role FROM users'
+    'SELECT id, name, handle, gender, age, country, city, bio, availability, goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role FROM users'
   );
   const data = query
     ? result.rows.filter((user) => {
