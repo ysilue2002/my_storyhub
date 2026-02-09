@@ -842,9 +842,11 @@ export default function Profile() {
                   <select
                     value={profileForm.gender}
                     onChange={(event) => setProfileForm({ ...profileForm, gender: event.target.value })}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                    className={`w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80 ${!profileForm.gender ? 'text-slate-400' : ''}`}
                   >
-                    <option value="" disabled hidden>{t.gender_select}</option>
+                    <option value="" disabled hidden className="text-slate-400">
+                      {t.gender_select}
+                    </option>
                     <option value="female">{t.gender_female}</option>
                     <option value="male">{t.gender_male}</option>
                     <option value="other">{t.gender_other}</option>
