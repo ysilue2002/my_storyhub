@@ -1,4 +1,4 @@
-export default function Header({ t, lang, unreadCount, pendingRequests }) {
+export default function Header({ t, lang, unreadCount, pendingRequests, rightSlot }) {
   return (
     <header className="bg-white/80 backdrop-blur border-b border-slate-100 sticky top-0 z-20">
       <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center gap-4">
@@ -96,15 +96,13 @@ export default function Header({ t, lang, unreadCount, pendingRequests }) {
           </a>
         </div>
         <div className="flex items-center gap-3">
+          {rightSlot}
           <a
             href="/profile"
             className="hidden md:inline-flex text-sm text-slate-700 border border-slate-200 px-3 py-2 rounded-xl hover:bg-slate-50 transition"
           >
             {t.nav_profile}
           </a>
-          <button className="bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-800 transition">
-            {t.cta_primary}
-          </button>
         </div>
       </div>
     </header>
