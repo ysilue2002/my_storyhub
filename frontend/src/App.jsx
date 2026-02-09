@@ -30,6 +30,7 @@ export default function App() {
   const socketRef = useRef(null);
   const selectedConversationRef = useRef(null);
   const [profileStatus, setProfileStatus] = useState({ error: '', success: '' });
+  const [goalStatus, setGoalStatus] = useState({ error: '', success: '' });
   const [uploadStatus, setUploadStatus] = useState({ error: '', avatar: false, cover: false, goal: false });
   const [profileForm, setProfileForm] = useState({
     name: '',
@@ -43,6 +44,22 @@ export default function App() {
     interests: '',
   });
   const [myGoals, setMyGoals] = useState([]);
+  const [showGoalForm, setShowGoalForm] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedGoalIds, setSelectedGoalIds] = useState([]);
+  const [goalForm, setGoalForm] = useState({
+    id: null,
+    title: '',
+    description: '',
+    category: '',
+    progress: 0,
+    tags: '',
+    imageUrl: '',
+    startDate: '',
+    endDate: '',
+    priority: 'normal',
+    steps: [{ title: '', done: false }],
+  });
   const [ads, setAds] = useState([]);
   const [hubmateSuggestions, setHubmateSuggestions] = useState([]);
   const [hubmateFilters, setHubmateFilters] = useState(() => {
@@ -161,6 +178,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('hubmateFilters', JSON.stringify(hubmateFilters));
   }, [hubmateFilters]);
+
+  useEffect(() => {
+    if (!deleteMode) {
+      setSelectedGoalIds([]);
+    }
+  }, [deleteMode]);
 
   useEffect(() => {
     const loadSuggestions = async () => {
@@ -477,6 +500,31 @@ export default function App() {
     setMessageText((prev) => `${prev}${emoji}`);
   };
 
+  const updateGoalStep = (index, patch) => {
+    setGoalForm((prev) => {
+      const nextSteps = (prev.steps || []).slice(0, 5).map((step, idx) =>
+        idx === index ? { ...step, ...patch } : step
+      );
+      return { ...prev, steps: nextSteps };
+    });
+  };
+
+  const addGoalStep = () => {
+    setGoalForm((prev) => {
+      const current = prev.steps || [];
+      if (current.length >= 5) return prev;
+      return { ...prev, steps: [...current, { title: '', done: false }] };
+    });
+  };
+
+  const removeGoalStep = (index) => {
+    setGoalForm((prev) => {
+      const current = prev.steps || [];
+      const nextSteps = current.filter((_, idx) => idx !== index);
+      return { ...prev, steps: nextSteps.length > 0 ? nextSteps : [{ title: '', done: false }] };
+    });
+  };
+
   const getGoalStatus = (goal) => {
     if (Number(goal.progress) >= 100) return 'done';
     if (Number(goal.progress) <= 0) return 'not_started';
@@ -570,6 +618,26 @@ export default function App() {
       setUploadStatus({ error: t.error_upload, avatar: false, cover: false, goal: false });
     } finally {
       setUploadStatus((prev) => ({ ...prev, cover: false }));
+    }
+  };
+
+  const handleGoalImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !authToken) return;
+    setUploadStatus({ error: '', avatar: false, cover: false, goal: true });
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await authFetch(`${API_BASE}/api/uploads/goal-image`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      setGoalForm((prev) => ({ ...prev, imageUrl: data.imageUrl }));
+    } catch (error) {
+      setUploadStatus({ error: t.error_upload, avatar: false, cover: false, goal: false });
+    } finally {
+      setUploadStatus((prev) => ({ ...prev, goal: false }));
     }
   };
 
@@ -690,11 +758,11 @@ export default function App() {
         )}
 
         <section id="goals" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-6">
             <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
               {t.goals_title}
             </h2>
-            <div className="w-full max-w-sm">
+            <div className="w-full max-w-sm flex flex-col gap-3">
               <AuthCard
                 t={t}
                 lang={lang}
@@ -705,8 +773,182 @@ export default function App() {
                 loading={authState.loading}
                 error={authState.error}
               />
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGoalForm((prev) => !prev)}
+                  className="text-sm bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-500 transition"
+                >
+                  {t.goal_create}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteButton}
+                  disabled={!authToken || myGoals.length === 0}
+                  className="text-sm text-slate-700 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition disabled:opacity-60"
+                >
+                  {t.goal_delete}
+                </button>
+              </div>
             </div>
           </div>
+
+          {showGoalForm && (
+            <div className="bg-white/90 border border-slate-100 rounded-2xl p-6 shadow-[var(--shadow-soft)]">
+              <h2 className={`text-lg font-semibold mb-4 ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+                {t.goals_title}
+              </h2>
+              {goalStatus.error && (
+                <div className="text-sm text-rose-600 mb-3">{goalStatus.error}</div>
+              )}
+              {goalStatus.success && (
+                <div className="text-sm text-emerald-600 mb-3">{goalStatus.success}</div>
+              )}
+              <form onSubmit={handleGoalSubmit} className="grid gap-3">
+                <input
+                  type="text"
+                  value={goalForm.title}
+                  onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })}
+                  placeholder={t.goal_title}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                />
+                <textarea
+                  rows={3}
+                  value={goalForm.description}
+                  onChange={(event) => setGoalForm({ ...goalForm, description: event.target.value })}
+                  placeholder={t.goal_description}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                />
+                <input
+                  type="text"
+                  value={goalForm.category}
+                  onChange={(event) => setGoalForm({ ...goalForm, category: event.target.value })}
+                  placeholder={t.goal_category}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                />
+                <select
+                  value={goalForm.priority}
+                  onChange={(event) => setGoalForm({ ...goalForm, priority: event.target.value })}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                >
+                  <option value="high">{t.goal_priority_high}</option>
+                  <option value="normal">{t.goal_priority_normal}</option>
+                  <option value="low">{t.goal_priority_low}</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={goalForm.progress}
+                  onChange={(event) => setGoalForm({ ...goalForm, progress: event.target.value })}
+                  placeholder={t.goal_progress}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                />
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-slate-500">{t.goal_start_date}</label>
+                    <input
+                      type="date"
+                      value={goalForm.startDate}
+                      onChange={(event) => setGoalForm({ ...goalForm, startDate: event.target.value })}
+                      disabled={!authToken}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-slate-500">{t.goal_end_date}</label>
+                    <input
+                      type="date"
+                      value={goalForm.endDate}
+                      onChange={(event) => setGoalForm({ ...goalForm, endDate: event.target.value })}
+                      disabled={!authToken}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                    />
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  value={goalForm.tags}
+                  onChange={(event) => setGoalForm({ ...goalForm, tags: event.target.value })}
+                  placeholder={t.goal_tags}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                />
+                <div className="border border-slate-200 rounded-xl p-3 bg-white/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-slate-500">{t.goal_steps}</label>
+                    <button
+                      type="button"
+                      onClick={addGoalStep}
+                      disabled={!authToken || (goalForm.steps || []).length >= 5}
+                      className="text-xs text-slate-600 border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {t.goal_steps_add}
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(goalForm.steps || []).map((step, index) => (
+                      <div key={`step-${index}`} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(step.done)}
+                          onChange={(event) => updateGoalStep(index, { done: event.target.checked })}
+                          disabled={!authToken}
+                        />
+                        <input
+                          type="text"
+                          value={step.title}
+                          onChange={(event) => updateGoalStep(index, { title: event.target.value })}
+                          placeholder={`${t.goal_step_label} ${index + 1}`}
+                          disabled={!authToken}
+                          className="flex-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeGoalStep(index)}
+                          disabled={!authToken}
+                          className="text-xs text-rose-600 border border-rose-200 px-2 py-1 rounded hover:bg-rose-50"
+                        >
+                          {t.goal_step_remove}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">{t.goal_steps_hint}</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs text-slate-500">{t.goal_image}</label>
+                  <input type="file" accept="image/*" onChange={handleGoalImageUpload} disabled={!authToken} />
+                  {goalForm.imageUrl && (
+                    <img src={goalForm.imageUrl} alt="goal" className="h-28 w-full rounded-xl object-cover" />
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="submit"
+                    disabled={!authToken}
+                    className="flex-1 bg-amber-600 text-white px-4 py-3 rounded-xl hover:bg-amber-500 transition disabled:opacity-60"
+                  >
+                    {goalForm.id ? t.goal_update : t.goal_create}
+                  </button>
+                  {goalForm.id && (
+                    <button
+                      type="button"
+                      onClick={resetGoalForm}
+                      className="flex-1 border border-slate-200 px-4 py-3 rounded-xl hover:bg-slate-50 transition"
+                    >
+                      {t.goal_reset}
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
 
           <div className="mt-6 flex flex-col gap-3">
             {!authToken ? (
@@ -718,6 +960,23 @@ export default function App() {
                 <div key={goal.id} className="border border-slate-100 rounded-xl p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-1">
+                      {deleteMode && (
+                        <div className="mb-2">
+                          <label className="inline-flex items-center gap-2 text-xs text-slate-500">
+                            <input
+                              type="checkbox"
+                              checked={selectedGoalIds.includes(goal.id)}
+                              onChange={(event) => {
+                                const checked = event.target.checked;
+                                setSelectedGoalIds((prev) =>
+                                  checked ? [...prev, goal.id] : prev.filter((id) => id !== goal.id)
+                                );
+                              }}
+                            />
+                            {t.goal_delete}
+                          </label>
+                        </div>
+                      )}
                       {goal.imageUrl && (
                         <img src={goal.imageUrl} alt={goal.title} className="h-28 w-full rounded-xl object-cover mb-3" />
                       )}
@@ -809,3 +1068,101 @@ export default function App() {
 }
 
 
+  const resetGoalForm = () => {
+    setGoalForm({
+      id: null,
+      title: '',
+      description: '',
+      category: '',
+      progress: 0,
+      tags: '',
+      imageUrl: '',
+      startDate: '',
+      endDate: '',
+      priority: 'normal',
+      steps: [{ title: '', done: false }],
+    });
+  };
+
+  const handleGoalSubmit = async (event) => {
+    event.preventDefault();
+    if (!authToken) return;
+    if (!goalForm.title.trim()) {
+      setGoalStatus({ error: t.error_required, success: '' });
+      return;
+    }
+    if (Number(goalForm.progress) < 0 || Number(goalForm.progress) > 100) {
+      setGoalStatus({ error: t.error_progress, success: '' });
+      return;
+    }
+    const cleanedSteps = (goalForm.steps || [])
+      .map((step) => ({ title: String(step.title || '').trim(), done: Boolean(step.done) }))
+      .filter((step) => step.title);
+    if (cleanedSteps.length > 5) {
+      setGoalStatus({ error: t.error_steps_limit, success: '' });
+      return;
+    }
+    const payload = {
+      title: goalForm.title,
+      description: goalForm.description,
+      category: goalForm.category,
+      progress: Number(goalForm.progress) || 0,
+      tags: goalForm.tags
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      imageUrl: goalForm.imageUrl || null,
+      startDate: goalForm.startDate || null,
+      endDate: goalForm.endDate || null,
+      priority: goalForm.priority || 'normal',
+      steps: cleanedSteps,
+    };
+
+    if (goalForm.id) {
+      const response = await authFetch(`${API_BASE}/api/goals/${goalForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setGoalStatus({ error: data.error || t.error_required, success: '' });
+        return;
+      }
+      setMyGoals((prev) => prev.map((goal) => (goal.id === data.id ? data : goal)));
+    } else {
+      const response = await authFetch(`${API_BASE}/api/goals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setGoalStatus({ error: data.error || t.error_required, success: '' });
+        return;
+      }
+      setMyGoals((prev) => [data, ...prev]);
+    }
+    resetGoalForm();
+    setGoalStatus({ error: '', success: t.goal_saved });
+  };
+
+  const handleGoalDelete = async (goalId) => {
+    if (!authToken) return;
+    await authFetch(`${API_BASE}/api/goals/${goalId}`, { method: 'DELETE' });
+    setMyGoals((prev) => prev.filter((goal) => goal.id !== goalId));
+  };
+
+  const handleDeleteButton = async () => {
+    if (!deleteMode) {
+      setDeleteMode(true);
+      return;
+    }
+    if (selectedGoalIds.length === 0) {
+      showToast(t.goal_delete_confirm);
+      return;
+    }
+    await Promise.all(selectedGoalIds.map((id) => handleGoalDelete(id)));
+    setSelectedGoalIds([]);
+    setDeleteMode(false);
+  };
