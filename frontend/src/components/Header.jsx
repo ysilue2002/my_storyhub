@@ -1,6 +1,12 @@
 export default function Header({ t, lang, rightSlot, hubmatesCount = 0, messagesCount = 0 }) {
   const hubmatesActive = hubmatesCount > 0;
   const messagesActive = messagesCount > 0;
+  const isAuthed = Boolean(localStorage.getItem('authToken'));
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    window.location.href = '/';
+  };
   return (
     <header className="bg-white/80 backdrop-blur border-b border-slate-100 sticky top-0 z-20">
       <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center gap-4">
@@ -59,7 +65,18 @@ export default function Header({ t, lang, rightSlot, hubmatesCount = 0, messages
           >
             {t.nav_profile}
           </a>
-          {rightSlot}
+          <div className="flex items-center gap-3">
+            {rightSlot}
+            {isAuthed && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-sm text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+              >
+                {t.auth_logout}
+              </button>
+            )}
+          </div>
         </nav>
       </div>
     </header>
