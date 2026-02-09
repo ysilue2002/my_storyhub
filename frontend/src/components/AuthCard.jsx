@@ -10,7 +10,6 @@ export default function AuthCard({ t, lang, user, onLogin, onRegister, onLogout,
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
   const [bio, setBio] = useState('');
-  const [availability, setAvailability] = useState('');
   const [goals, setGoals] = useState('');
   const [interests, setInterests] = useState('');
   const [localError, setLocalError] = useState('');
@@ -42,7 +41,6 @@ export default function AuthCard({ t, lang, user, onLogin, onRegister, onLogout,
         country,
         city,
         bio,
-        availability,
         goals,
         interests,
       });
@@ -155,13 +153,6 @@ export default function AuthCard({ t, lang, user, onLogin, onRegister, onLogout,
               value={interests}
               onChange={(event) => setInterests(event.target.value)}
               placeholder={t.profile_interests_input}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-            />
-            <input
-              type="text"
-              value={availability}
-              onChange={(event) => setAvailability(event.target.value)}
-              placeholder={t.profile_availability}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
             />
           </>
