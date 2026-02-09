@@ -75,6 +75,8 @@ export default function App() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [toast, setToast] = useState('');
   const [currentHash, setCurrentHash] = useState(window.location.hash || '');
+  const [viewMode, setViewMode] = useState('simple');
+  const isSimple = viewMode === 'simple';
 
   useEffect(() => {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
@@ -383,6 +385,8 @@ export default function App() {
       return haystack.includes(normalizedQuery);
     });
   }, [goals, normalizedQuery]);
+
+  const goalsToShow = isSimple ? filteredGoals.slice(0, 4) : filteredGoals;
 
   const filteredUsers = useMemo(() => {
     if (!normalizedQuery) {
@@ -710,6 +714,7 @@ export default function App() {
       (item.metadata?.requestStatus || 'pending') === 'pending'
   ).length;
   const requestNotifications = notifications.filter((item) => item.type === 'connection_request');
+  const requestsSummary = requestNotifications.slice(0, 3);
   const visibleRequests = requestsPendingOnly
     ? requestNotifications.filter((item) => (item.metadata?.requestStatus || 'pending') === 'pending')
     : requestNotifications;
@@ -886,8 +891,107 @@ export default function App() {
           </div>
         )}
 
-        <div className="grid lg:grid-cols-[0.7fr_1.6fr_0.7fr] gap-6">
-          <aside className="space-y-4">
+        <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 mb-6 shadow-[var(--shadow-soft)]">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-amber-600">{t.view_title}</p>
+              <p className="text-sm text-slate-600 mt-1">{t.view_description}</p>
+            </div>
+            <div className="inline-flex rounded-full bg-slate-100 p-1">
+              <button
+                onClick={() => setViewMode('simple')}
+                className={`px-4 py-2 text-sm rounded-full transition ${
+                  isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.view_simple}
+              </button>
+              <button
+                onClick={() => setViewMode('full')}
+                className={`px-4 py-2 text-sm rounded-full transition ${
+                  !isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {t.view_full}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {isSimple && (
+          <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-6 mb-6">
+            <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]">
+              <h3 className={`text-sm font-semibold mb-3 ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+                {t.view_search_title}
+              </h3>
+              <SearchBar
+                placeholder={t.search_placeholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onSearch={handleSearch}
+                buttonText={t.search_button}
+                lang={lang}
+              />
+              <p className={`text-xs text-slate-500 mt-3 ${lang === 'ar' ? 'font-arabic text-right' : ''}`}>
+                {t.search_hint}
+              </p>
+              <div className="mt-4">
+                <p className="text-xs uppercase tracking-wide text-amber-600">{t.view_quick_actions}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <a href="#goals" className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50">
+                    {t.nav_goals}
+                  </a>
+                  <a href="#people" className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50">
+                    {t.nav_people}
+                  </a>
+                  <a href="#messages" className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50">
+                    {t.nav_messages}
+                  </a>
+                  <a href="#notifications" className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50">
+                    {t.nav_notifications}
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <h3 className={`text-sm font-semibold mb-3 ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+                  {t.view_account_title}
+                </h3>
+                <AuthCard
+                  t={t}
+                  lang={lang}
+                  user={currentUser}
+                  onLogin={handleLogin}
+                  onRegister={handleRegister}
+                  onLogout={handleLogout}
+                  loading={authState.loading}
+                  error={authState.error}
+                />
+              </div>
+              <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]" id="people">
+                <h3 className="text-sm font-semibold mb-3">{t.section_people_title}</h3>
+                <div className="space-y-3">
+                  {filteredUsers.slice(0, 3).map((user) => (
+                    <div key={user.id} className="flex items-center justify-between text-sm text-slate-600">
+                      <span>{user.name}</span>
+                      <button
+                        onClick={() => handleConnect(user)}
+                        className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                      >
+                        {t.connect_button}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className={`grid gap-6 ${isSimple ? 'lg:grid-cols-1' : 'lg:grid-cols-[0.7fr_1.6fr_0.7fr]'}`}>
+          {!isSimple && (
+            <aside className="space-y-4">
             <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
               <p className="text-xs uppercase tracking-[0.3em] text-amber-600 mb-3">MyStoryHub</p>
               <div className="flex flex-col gap-2 text-sm text-slate-600">
@@ -912,7 +1016,8 @@ export default function App() {
                 ))}
               </div>
             </div>
-          </aside>
+            </aside>
+          )}
 
           <section id="goals" className="space-y-4">
             <div className="flex items-center justify-between">
@@ -927,13 +1032,21 @@ export default function App() {
               <div className="text-slate-500">{t.no_results}</div>
             ) : (
               <div className="flex flex-col gap-4">
-                {filteredGoals.map((goal) => {
+                {goalsToShow.map((goal) => {
                   const owner = users.find((user) => user.id === goal.ownerId);
                   return <GoalCard key={goal.id} goal={goal} owner={owner} lang={lang} />;
                 })}
               </div>
             )}
-            {sponsorOfDay && (
+            {isSimple && filteredGoals.length > goalsToShow.length && (
+              <button
+                onClick={() => setViewMode('full')}
+                className="text-sm text-slate-700 border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50"
+              >
+                {t.view_show_full}
+              </button>
+            )}
+            {!isSimple && sponsorOfDay && (
               <div className="border border-amber-100 bg-amber-50/60 rounded-2xl p-4 transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs uppercase tracking-wide text-amber-600">{t.ads_sponsor_of_day}</p>
@@ -964,7 +1077,7 @@ export default function App() {
                 </a>
               </div>
             )}
-            {feedAd && (
+            {!isSimple && feedAd && (
               <div className="border border-amber-100 bg-amber-50/60 rounded-2xl p-4 transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs uppercase tracking-wide text-amber-600">{t.ads_label}</p>
@@ -997,212 +1110,214 @@ export default function App() {
             )}
           </section>
 
-          <aside className="space-y-4" id="people">
-            <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
-              <h3 className="text-sm font-semibold mb-3">{t.search_button}</h3>
-              <SearchBar
-                placeholder={t.search_placeholder}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onSearch={handleSearch}
-                buttonText={t.search_button}
+          {!isSimple && (
+            <aside className="space-y-4" id="people">
+              <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
+                <h3 className="text-sm font-semibold mb-3">{t.search_button}</h3>
+                <SearchBar
+                  placeholder={t.search_placeholder}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onSearch={handleSearch}
+                  buttonText={t.search_button}
+                  lang={lang}
+                />
+                <p className={`text-xs text-slate-500 mt-3 ${lang === 'ar' ? 'font-arabic text-right' : ''}`}>
+                  {t.search_hint}
+                </p>
+              </div>
+              <AuthCard
+                t={t}
                 lang={lang}
+                user={currentUser}
+                onLogin={handleLogin}
+                onRegister={handleRegister}
+                onLogout={handleLogout}
+                loading={authState.loading}
+                error={authState.error}
               />
-              <p className={`text-xs text-slate-500 mt-3 ${lang === 'ar' ? 'font-arabic text-right' : ''}`}>
-                {t.search_hint}
-              </p>
-            </div>
-            <AuthCard
-              t={t}
-              lang={lang}
-              user={currentUser}
-              onLogin={handleLogin}
-              onRegister={handleRegister}
-              onLogout={handleLogout}
-              loading={authState.loading}
-              error={authState.error}
-            />
-            {authToken && requestNotifications.length > 0 && (
-              <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold">{t.notifications_requests_title}</p>
-                  {pendingRequests > 0 && (
-                    <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full">
-                      {pendingRequests}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center justify-between mb-3">
-                  <button
-                    onClick={() => setRequestsPendingOnly((prev) => !prev)}
-                    className={`text-xs border px-2 py-1 rounded-lg ${
-                      requestsPendingOnly
-                        ? 'border-amber-300 bg-amber-100 text-amber-700'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {requestsPendingOnly
-                      ? t.notifications_requests_filter_all
-                      : t.notifications_requests_filter_pending}
-                  </button>
-                  <span className="text-xs text-slate-500">{visibleRequests.length}</span>
-                </div>
-                <div className="space-y-3">
-                  {visibleRequests.map((item) => {
-                    const requestStatus = item.metadata?.requestStatus || 'pending';
-                    const isPendingRequest = requestStatus === 'pending';
-                    const statusLabel =
-                      requestStatus === 'accepted'
-                        ? t.notifications_request_accepted
-                        : requestStatus === 'declined'
-                          ? t.notifications_request_declined
-                          : t.notifications_request_pending;
-                    const statusClass =
-                      requestStatus === 'accepted'
-                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                        : requestStatus === 'declined'
-                          ? 'text-rose-700 bg-rose-50 border-rose-200'
-                          : 'text-slate-600 bg-slate-100 border-slate-200';
-                    return (
-                      <div
-                        key={`request-mini-${item.id}`}
-                        className={`border rounded-xl p-3 ${
-                          item.isRead ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
-                            {statusLabel}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-700 mt-2">{item.body}</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            onClick={() => markNotificationRead(item.id)}
-                            disabled={item.isRead}
-                            className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
-                          >
-                            {t.notifications_mark}
-                          </button>
-                          {isPendingRequest && (
-                            <>
-                              <button
-                                onClick={() => acceptHubmateRequest(item)}
-                                className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
-                              >
-                                {t.notifications_accept}
-                              </button>
-                              <button
-                                onClick={() => declineHubmateRequest(item)}
-                                className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
-                              >
-                                {t.notifications_decline}
-                              </button>
-                            </>
-                          )}
-                          <button
-                            onClick={() => replyToHubmate(item)}
-                            className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                          >
-                            {t.notifications_reply}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
-              <h3 className="text-sm font-semibold mb-3">{t.hubmates_suggestions}</h3>
-              <div className="mb-4 space-y-3">
-                <label className="flex items-center gap-2 text-xs text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={hubmateFilters.sameCityOnly}
-                    onChange={(event) =>
-                      setHubmateFilters((prev) => ({ ...prev, sameCityOnly: event.target.checked }))
-                    }
-                  />
-                  {t.hubmates_same_city}
-                </label>
-                <div>
-                  <label className="text-xs text-slate-600 flex items-center justify-between">
-                    <span>{t.hubmates_min_score}</span>
-                    <span className="font-semibold">{hubmateFilters.minScore}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="1"
-                    value={hubmateFilters.minScore}
-                    onChange={(event) =>
-                      setHubmateFilters((prev) => ({ ...prev, minScore: Number(event.target.value) }))
-                    }
-                    className="w-full"
-                  />
-                </div>
-                <button
-                  onClick={() => setHubmateFilters({ sameCityOnly: false, minScore: 0 })}
-                  className="text-xs text-slate-600 border border-slate-200 px-2 py-1 rounded hover:bg-slate-50"
-                >
-                  {t.hubmates_reset}
-                </button>
-              </div>
-              <div className="space-y-3">
-                {(hubmateSuggestions.length > 0 ? hubmateSuggestions : filteredUsers.slice(0, 2)).map((user) => (
-                  <div key={user.id} className="border border-slate-100 rounded-xl p-3 bg-white/70">
-                    <ProfileCard user={user} t={t} lang={lang} onConnect={handleConnect} />
-                    <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                      <span>{t.hubmates_score}: {user.score ?? 0}</span>
-                      <span>{t.hubmates_city}: {user.city || '-'}</span>
-                    </div>
-                    <button
-                      onClick={() => reportTarget('profile', user.id)}
-                      className="mt-2 text-[11px] text-rose-600 border border-rose-200 px-2 py-1 rounded hover:bg-rose-50"
-                    >
-                      {t.report_profile}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {featuredAds.length > 0 && (
-              <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold">{t.ads_title}</h3>
-                  <span className="text-[10px] uppercase tracking-wide text-amber-600">{t.ads_label}</span>
-                </div>
-                <div className="space-y-3">
-                  {featuredAds.map((ad) => (
-                    <a
-                      key={ad.id}
-                      href={ad.linkUrl || '#'}
-                      target={ad.linkUrl ? '_blank' : undefined}
-                      rel={ad.linkUrl ? 'noreferrer' : undefined}
-                      className="group flex items-center gap-3 rounded-xl border border-slate-100 bg-white/80 p-3 transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                      {ad.imageUrl && (
-                        <img src={ad.imageUrl} alt={ad.title} className="h-12 w-12 rounded-lg object-cover" />
-                      )}
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-slate-800 group-hover:text-slate-900">{ad.title}</p>
-                        {ad.body && <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{ad.body}</p>}
-                      </div>
-                      <span className="text-[10px] text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
-                        {t.ads_cta}
+              {authToken && requestNotifications.length > 0 && (
+                <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold">{t.notifications_requests_title}</p>
+                    {pendingRequests > 0 && (
+                      <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full">
+                        {pendingRequests}
                       </span>
-                    </a>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <button
+                      onClick={() => setRequestsPendingOnly((prev) => !prev)}
+                      className={`text-xs border px-2 py-1 rounded-lg ${
+                        requestsPendingOnly
+                          ? 'border-amber-300 bg-amber-100 text-amber-700'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {requestsPendingOnly
+                        ? t.notifications_requests_filter_all
+                        : t.notifications_requests_filter_pending}
+                    </button>
+                    <span className="text-xs text-slate-500">{visibleRequests.length}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {visibleRequests.map((item) => {
+                      const requestStatus = item.metadata?.requestStatus || 'pending';
+                      const isPendingRequest = requestStatus === 'pending';
+                      const statusLabel =
+                        requestStatus === 'accepted'
+                          ? t.notifications_request_accepted
+                          : requestStatus === 'declined'
+                            ? t.notifications_request_declined
+                            : t.notifications_request_pending;
+                      const statusClass =
+                        requestStatus === 'accepted'
+                          ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                          : requestStatus === 'declined'
+                            ? 'text-rose-700 bg-rose-50 border-rose-200'
+                            : 'text-slate-600 bg-slate-100 border-slate-200';
+                      return (
+                        <div
+                          key={`request-mini-${item.id}`}
+                          className={`border rounded-xl p-3 ${
+                            item.isRead ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-700 mt-2">{item.body}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => markNotificationRead(item.id)}
+                              disabled={item.isRead}
+                              className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+                            >
+                              {t.notifications_mark}
+                            </button>
+                            {isPendingRequest && (
+                              <>
+                                <button
+                                  onClick={() => acceptHubmateRequest(item)}
+                                  className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
+                                >
+                                  {t.notifications_accept}
+                                </button>
+                                <button
+                                  onClick={() => declineHubmateRequest(item)}
+                                  className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
+                                >
+                                  {t.notifications_decline}
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => replyToHubmate(item)}
+                              className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                            >
+                              {t.notifications_reply}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
+                <h3 className="text-sm font-semibold mb-3">{t.hubmates_suggestions}</h3>
+                <div className="mb-4 space-y-3">
+                  <label className="flex items-center gap-2 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={hubmateFilters.sameCityOnly}
+                      onChange={(event) =>
+                        setHubmateFilters((prev) => ({ ...prev, sameCityOnly: event.target.checked }))
+                      }
+                    />
+                    {t.hubmates_same_city}
+                  </label>
+                  <div>
+                    <label className="text-xs text-slate-600 flex items-center justify-between">
+                      <span>{t.hubmates_min_score}</span>
+                      <span className="font-semibold">{hubmateFilters.minScore}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="1"
+                      value={hubmateFilters.minScore}
+                      onChange={(event) =>
+                        setHubmateFilters((prev) => ({ ...prev, minScore: Number(event.target.value) }))
+                      }
+                      className="w-full"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setHubmateFilters({ sameCityOnly: false, minScore: 0 })}
+                    className="text-xs text-slate-600 border border-slate-200 px-2 py-1 rounded hover:bg-slate-50"
+                  >
+                    {t.hubmates_reset}
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {(hubmateSuggestions.length > 0 ? hubmateSuggestions : filteredUsers.slice(0, 2)).map((user) => (
+                    <div key={user.id} className="border border-slate-100 rounded-xl p-3 bg-white/70">
+                      <ProfileCard user={user} t={t} lang={lang} onConnect={handleConnect} />
+                      <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                        <span>{t.hubmates_score}: {user.score ?? 0}</span>
+                        <span>{t.hubmates_city}: {user.city || '-'}</span>
+                      </div>
+                      <button
+                        onClick={() => reportTarget('profile', user.id)}
+                        className="mt-2 text-[11px] text-rose-600 border border-rose-200 px-2 py-1 rounded hover:bg-rose-50"
+                      >
+                        {t.report_profile}
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
-            )}
-          </aside>
+              {featuredAds.length > 0 && (
+                <div className="bg-white/90 border border-slate-100 rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold">{t.ads_title}</h3>
+                    <span className="text-[10px] uppercase tracking-wide text-amber-600">{t.ads_label}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {featuredAds.map((ad) => (
+                      <a
+                        key={ad.id}
+                        href={ad.linkUrl || '#'}
+                        target={ad.linkUrl ? '_blank' : undefined}
+                        rel={ad.linkUrl ? 'noreferrer' : undefined}
+                        className="group flex items-center gap-3 rounded-xl border border-slate-100 bg-white/80 p-3 transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md"
+                      >
+                        {ad.imageUrl && (
+                          <img src={ad.imageUrl} alt={ad.title} className="h-12 w-12 rounded-lg object-cover" />
+                        )}
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-slate-800 group-hover:text-slate-900">{ad.title}</p>
+                          {ad.body && <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{ad.body}</p>}
+                        </div>
+                        <span className="text-[10px] text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
+                          {t.ads_cta}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </aside>
+          )}
         </div>
 
-        {ads.length > 0 && (
+        {!isSimple && ads.length > 0 && (
           <section className="py-12">
             <div className="max-w-6xl mx-auto px-6">
               <div className="flex items-center justify-between mb-6">
@@ -1348,172 +1463,262 @@ export default function App() {
 
         <section id="notifications" className="py-12">
           <div className="max-w-6xl mx-auto px-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className={`text-2xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-                {t.notifications_requests_title}
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowUnreadOnly((prev) => !prev)}
-                  className={`text-sm border px-3 py-1 rounded-lg ${
-                    showUnreadOnly
-                      ? 'border-amber-300 bg-amber-100 text-amber-700'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {showUnreadOnly ? t.notifications_show_all : t.notifications_show_unread}
-                </button>
-                <button
-                  onClick={markAllRead}
-                  disabled={!authToken || notifications.length === 0}
-                  className="text-sm text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
-                >
-                  {t.notifications_mark_all}
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {['pending', 'accepted', 'declined', 'all'].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setRequestsStatusFilter(status)}
-                  className={`text-xs border px-3 py-1 rounded-lg ${
-                    requestsStatusFilter === status
-                      ? 'border-amber-300 bg-amber-100 text-amber-700'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {status === 'pending'
-                    ? t.requests_filter_pending
-                    : status === 'accepted'
-                      ? t.requests_filter_accepted
-                      : status === 'declined'
-                        ? t.requests_filter_declined
-                        : t.requests_filter_all}
-                </button>
-              ))}
-            </div>
-            {visibleRequests.length === 0 ? (
-              <p className="text-sm text-slate-500">{t.notifications_empty}</p>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {visibleRequests.length > 0 && (
-                  <div className="border border-slate-100 rounded-2xl p-4 bg-white/90">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-semibold">{t.notifications_requests_title}</p>
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {visibleRequests
-                        .filter((item) =>
-                          requestsStatusFilter === 'all'
-                            ? true
-                            : (item.metadata?.requestStatus || 'pending') === requestsStatusFilter
-                        )
-                        .map((item) => {
-                          const requestStatus = item.metadata?.requestStatus || 'pending';
-                          const isPendingRequest = requestStatus === 'pending';
-                          const requester = users.find((user) => user.id === item.metadata?.fromUserId);
-                          const createdAt = new Date(item.createdAt);
-                          const isNew = !Number.isNaN(createdAt.getTime())
-                            ? Date.now() - createdAt.getTime() < 1000 * 60 * 60 * 24
-                            : false;
-                          const statusLabel =
-                            requestStatus === 'accepted'
-                              ? t.notifications_request_accepted
-                              : requestStatus === 'declined'
-                                ? t.notifications_request_declined
-                                : t.notifications_request_pending;
-                          const statusClass =
-                            requestStatus === 'accepted'
-                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                              : requestStatus === 'declined'
-                                ? 'text-rose-700 bg-rose-50 border-rose-200'
-                                : 'text-slate-600 bg-slate-100 border-slate-200';
-                          return (
-                            <div
-                              key={`request-${item.id}`}
-                              className={`border rounded-2xl p-4 ${
-                                item.isRead ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50'
-                              }`}
+            {isSimple ? (
+              <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className={`text-lg font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+                    {t.notifications_requests_title}
+                  </h2>
+                  <span className="text-xs text-slate-500">{requestNotifications.length}</span>
+                </div>
+                {requestNotifications.length === 0 ? (
+                  <p className="text-sm text-slate-500">{t.notifications_empty}</p>
+                ) : (
+                  <div className="space-y-3">
+                    {requestsSummary.map((item) => {
+                      const requestStatus = item.metadata?.requestStatus || 'pending';
+                      const isPendingRequest = requestStatus === 'pending';
+                      const statusLabel =
+                        requestStatus === 'accepted'
+                          ? t.notifications_request_accepted
+                          : requestStatus === 'declined'
+                            ? t.notifications_request_declined
+                            : t.notifications_request_pending;
+                      const statusClass =
+                        requestStatus === 'accepted'
+                          ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                          : requestStatus === 'declined'
+                            ? 'text-rose-700 bg-rose-50 border-rose-200'
+                            : 'text-slate-600 bg-slate-100 border-slate-200';
+                      return (
+                        <div
+                          key={`request-simple-${item.id}`}
+                          className={`border rounded-xl p-3 ${
+                            item.isRead ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-700 mt-2">{item.body}</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => markNotificationRead(item.id)}
+                              disabled={item.isRead}
+                              className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
                             >
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden">
-                                  {requester?.avatarUrl && (
-                                    <img src={requester.avatarUrl} alt={requester.name} className="h-full w-full object-cover" />
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-sm font-semibold text-slate-800">
-                                    {requester?.name || t.report_profile}
-                                  </p>
-                                  {requester?.handle && (
-                                    <p className="text-xs text-slate-500">{requester.handle}</p>
-                                  )}
-                                  {requester?.city && (
-                                    <p className="text-[11px] text-slate-400">{requester.city}</p>
-                                  )}
-                                </div>
-                                {requester?.id && (
-                                  <a
-                                    href={`/profile?user=${requester.id}`}
-                                    className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                                  >
-                                    {t.notifications_view_profile}
-                                  </a>
-                                )}
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
-                                <div className="flex items-center gap-2">
-                                  {isNew && (
-                                    <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full">
-                                      {t.notifications_new}
-                                    </span>
-                                  )}
-                                  <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
-                                    {statusLabel}
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-sm text-slate-700 mt-2">{item.body}</p>
-                              <div className="mt-3 flex flex-wrap gap-2">
+                              {t.notifications_mark}
+                            </button>
+                            {isPendingRequest && (
+                              <>
                                 <button
-                                  onClick={() => markNotificationRead(item.id)}
-                                  disabled={item.isRead}
-                                  className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+                                  onClick={() => acceptHubmateRequest(item)}
+                                  className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
                                 >
-                                  {t.notifications_mark}
+                                  {t.notifications_accept}
                                 </button>
-                                {isPendingRequest && (
-                                  <>
-                                    <button
-                                      onClick={() => acceptHubmateRequest(item)}
-                                      className="text-xs text-white bg-emerald-600 px-3 py-1 rounded-lg hover:bg-emerald-500"
-                                    >
-                                      {t.notifications_accept}
-                                    </button>
-                                    <button
-                                      onClick={() => declineHubmateRequest(item)}
-                                      className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
-                                    >
-                                      {t.notifications_decline}
-                                    </button>
-                                  </>
-                                )}
                                 <button
-                                  onClick={() => replyToHubmate(item)}
-                                  className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                                  onClick={() => declineHubmateRequest(item)}
+                                  className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
                                 >
-                                  {t.notifications_reply}
+                                  {t.notifications_decline}
                                 </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
+                              </>
+                            )}
+                            <button
+                              onClick={() => replyToHubmate(item)}
+                              className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                            >
+                              {t.notifications_reply}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+                {requestNotifications.length > requestsSummary.length && (
+                  <button
+                    onClick={() => setViewMode('full')}
+                    className="mt-4 text-sm text-slate-700 border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50"
+                  >
+                    {t.view_show_full}
+                  </button>
+                )}
               </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className={`text-2xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+                    {t.notifications_requests_title}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowUnreadOnly((prev) => !prev)}
+                      className={`text-sm border px-3 py-1 rounded-lg ${
+                        showUnreadOnly
+                          ? 'border-amber-300 bg-amber-100 text-amber-700'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {showUnreadOnly ? t.notifications_show_all : t.notifications_show_unread}
+                    </button>
+                    <button
+                      onClick={markAllRead}
+                      disabled={!authToken || notifications.length === 0}
+                      className="text-sm text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {t.notifications_mark_all}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {['pending', 'accepted', 'declined', 'all'].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setRequestsStatusFilter(status)}
+                      className={`text-xs border px-3 py-1 rounded-lg ${
+                        requestsStatusFilter === status
+                          ? 'border-amber-300 bg-amber-100 text-amber-700'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {status === 'pending'
+                        ? t.requests_filter_pending
+                        : status === 'accepted'
+                          ? t.requests_filter_accepted
+                          : status === 'declined'
+                            ? t.requests_filter_declined
+                            : t.requests_filter_all}
+                    </button>
+                  ))}
+                </div>
+                {visibleRequests.length === 0 ? (
+                  <p className="text-sm text-slate-500">{t.notifications_empty}</p>
+                ) : (
+                  <div className="flex flex-col gap-6">
+                    {visibleRequests.length > 0 && (
+                      <div className="border border-slate-100 rounded-2xl p-4 bg-white/90">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-semibold">{t.notifications_requests_title}</p>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {visibleRequests
+                            .filter((item) =>
+                              requestsStatusFilter === 'all'
+                                ? true
+                                : (item.metadata?.requestStatus || 'pending') === requestsStatusFilter
+                            )
+                            .map((item) => {
+                              const requestStatus = item.metadata?.requestStatus || 'pending';
+                              const isPendingRequest = requestStatus === 'pending';
+                              const requester = users.find((user) => user.id === item.metadata?.fromUserId);
+                              const createdAt = new Date(item.createdAt);
+                              const isNew = !Number.isNaN(createdAt.getTime())
+                                ? Date.now() - createdAt.getTime() < 1000 * 60 * 60 * 24
+                                : false;
+                              const statusLabel =
+                                requestStatus === 'accepted'
+                                  ? t.notifications_request_accepted
+                                  : requestStatus === 'declined'
+                                    ? t.notifications_request_declined
+                                    : t.notifications_request_pending;
+                              const statusClass =
+                                requestStatus === 'accepted'
+                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                  : requestStatus === 'declined'
+                                    ? 'text-rose-700 bg-rose-50 border-rose-200'
+                                    : 'text-slate-600 bg-slate-100 border-slate-200';
+                              return (
+                                <div
+                                  key={`request-${item.id}`}
+                                  className={`border rounded-2xl p-4 ${
+                                    item.isRead ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden">
+                                      {requester?.avatarUrl && (
+                                        <img src={requester.avatarUrl} alt={requester.name} className="h-full w-full object-cover" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-sm font-semibold text-slate-800">
+                                        {requester?.name || t.report_profile}
+                                      </p>
+                                      {requester?.handle && (
+                                        <p className="text-xs text-slate-500">{requester.handle}</p>
+                                      )}
+                                      {requester?.city && (
+                                        <p className="text-[11px] text-slate-400">{requester.city}</p>
+                                      )}
+                                    </div>
+                                    {requester?.id && (
+                                      <a
+                                        href={`/profile?user=${requester.id}`}
+                                        className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                                      >
+                                        {t.notifications_view_profile}
+                                      </a>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
+                                    <div className="flex items-center gap-2">
+                                      {isNew && (
+                                        <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full">
+                                          {t.notifications_new}
+                                        </span>
+                                      )}
+                                      <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
+                                        {statusLabel}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-slate-700 mt-2">{item.body}</p>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                      onClick={() => markNotificationRead(item.id)}
+                                      disabled={item.isRead}
+                                      className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+                                    >
+                                      {t.notifications_mark}
+                                    </button>
+                                    {isPendingRequest && (
+                                      <>
+                                        <button
+                                          onClick={() => acceptHubmateRequest(item)}
+                                          className="text-xs text-white bg-emerald-600 px-3 py-1 rounded-lg hover:bg-emerald-500"
+                                        >
+                                          {t.notifications_accept}
+                                        </button>
+                                        <button
+                                          onClick={() => declineHubmateRequest(item)}
+                                          className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
+                                        >
+                                          {t.notifications_decline}
+                                        </button>
+                                      </>
+                                    )}
+                                    <button
+                                      onClick={() => replyToHubmate(item)}
+                                      className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                                    >
+                                      {t.notifications_reply}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
@@ -1754,108 +1959,110 @@ export default function App() {
         )}
       </main>
 
-      <section id="hubmates-requests" className="py-16 bg-white/70 border-t border-slate-100">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-2xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-              {t.requests_page_title}
-            </h2>
-            <span className="text-xs text-slate-500">{requestNotifications.length}</span>
-          </div>
-          {requestNotifications.length === 0 ? (
-            <p className="text-sm text-slate-500">{t.requests_empty}</p>
-          ) : (
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-wrap gap-2">
-                {['pending', 'accepted', 'declined', 'all'].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setRequestsStatusFilter(status)}
-                    className={`text-xs border px-3 py-1 rounded-lg ${
-                      requestsStatusFilter === status
-                        ? 'border-amber-300 bg-amber-100 text-amber-700'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {status === 'pending'
-                      ? `${t.requests_filter_pending} (${requestCounts.pending})`
-                      : status === 'accepted'
-                        ? `${t.requests_filter_accepted} (${requestCounts.accepted})`
-                        : status === 'declined'
-                          ? `${t.requests_filter_declined} (${requestCounts.declined})`
-                          : `${t.requests_filter_all} (${requestCounts.all})`}
-                  </button>
-                ))}
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                {filteredRequests.map((item) => {
-                  const requestStatus = item.metadata?.requestStatus || 'pending';
-                  const isPendingRequest = requestStatus === 'pending';
-                  const statusLabel =
-                    requestStatus === 'accepted'
-                      ? t.notifications_request_accepted
-                      : requestStatus === 'declined'
-                        ? t.notifications_request_declined
-                        : t.notifications_request_pending;
-                  const statusClass =
-                    requestStatus === 'accepted'
-                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                      : requestStatus === 'declined'
-                        ? 'text-rose-700 bg-rose-50 border-rose-200'
-                        : 'text-slate-600 bg-slate-100 border-slate-200';
-                  return (
-                    <div
-                      key={`request-page-${item.id}`}
-                      className={`border rounded-2xl p-4 ${
-                        item.isRead ? 'border-slate-100 bg-white/80' : 'border-amber-200 bg-amber-50'
+      {!isSimple && (
+        <section id="hubmates-requests" className="py-16 bg-white/70 border-t border-slate-100">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className={`text-2xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+                {t.requests_page_title}
+              </h2>
+              <span className="text-xs text-slate-500">{requestNotifications.length}</span>
+            </div>
+            {requestNotifications.length === 0 ? (
+              <p className="text-sm text-slate-500">{t.requests_empty}</p>
+            ) : (
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-wrap gap-2">
+                  {['pending', 'accepted', 'declined', 'all'].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setRequestsStatusFilter(status)}
+                      className={`text-xs border px-3 py-1 rounded-lg ${
+                        requestsStatusFilter === status
+                          ? 'border-amber-300 bg-amber-100 text-amber-700'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
-                          {statusLabel}
-                        </span>
+                      {status === 'pending'
+                        ? `${t.requests_filter_pending} (${requestCounts.pending})`
+                        : status === 'accepted'
+                          ? `${t.requests_filter_accepted} (${requestCounts.accepted})`
+                          : status === 'declined'
+                            ? `${t.requests_filter_declined} (${requestCounts.declined})`
+                            : `${t.requests_filter_all} (${requestCounts.all})`}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {filteredRequests.map((item) => {
+                    const requestStatus = item.metadata?.requestStatus || 'pending';
+                    const isPendingRequest = requestStatus === 'pending';
+                    const statusLabel =
+                      requestStatus === 'accepted'
+                        ? t.notifications_request_accepted
+                        : requestStatus === 'declined'
+                          ? t.notifications_request_declined
+                          : t.notifications_request_pending;
+                    const statusClass =
+                      requestStatus === 'accepted'
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        : requestStatus === 'declined'
+                          ? 'text-rose-700 bg-rose-50 border-rose-200'
+                          : 'text-slate-600 bg-slate-100 border-slate-200';
+                    return (
+                      <div
+                        key={`request-page-${item.id}`}
+                        className={`border rounded-2xl p-4 ${
+                          item.isRead ? 'border-slate-100 bg-white/80' : 'border-amber-200 bg-amber-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs uppercase tracking-wide text-amber-600">{item.title}</p>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusClass}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-700 mt-2">{item.body}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => markNotificationRead(item.id)}
+                            disabled={item.isRead}
+                            className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+                          >
+                            {t.notifications_mark}
+                          </button>
+                          {isPendingRequest && (
+                            <>
+                              <button
+                                onClick={() => acceptHubmateRequest(item)}
+                                className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
+                              >
+                                {t.notifications_accept}
+                              </button>
+                              <button
+                                onClick={() => declineHubmateRequest(item)}
+                                className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
+                              >
+                                {t.notifications_decline}
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => replyToHubmate(item)}
+                            className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                          >
+                            {t.notifications_reply}
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-sm text-slate-700 mt-2">{item.body}</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          onClick={() => markNotificationRead(item.id)}
-                          disabled={item.isRead}
-                          className="text-xs text-slate-600 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50 disabled:opacity-60"
-                        >
-                          {t.notifications_mark}
-                        </button>
-                        {isPendingRequest && (
-                          <>
-                            <button
-                              onClick={() => acceptHubmateRequest(item)}
-                              className="text-xs text-emerald-700 border border-emerald-200 px-3 py-1 rounded-lg hover:bg-emerald-50"
-                            >
-                              {t.notifications_accept}
-                            </button>
-                            <button
-                              onClick={() => declineHubmateRequest(item)}
-                              className="text-xs text-rose-700 border border-rose-200 px-3 py-1 rounded-lg hover:bg-rose-50"
-                            >
-                              {t.notifications_decline}
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => replyToHubmate(item)}
-                          className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                        >
-                          {t.notifications_reply}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </section>
+            )}
+          </div>
+        </section>
+      )}
 
       <Footer t={t} lang={lang} />
     </div>
