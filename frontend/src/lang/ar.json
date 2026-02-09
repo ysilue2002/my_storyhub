@@ -202,6 +202,7 @@
   "gender_female": "Femme",
   "gender_male": "Homme",
   "gender_other": "Autre",
+  "gender_select": "اختر",
   "admin_title": "لوحة الإدارة",
   "admin_menu_title": "قائمة الإدارة",
   "admin_menu_show": "إظهار",

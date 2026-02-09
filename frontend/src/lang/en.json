@@ -202,6 +202,7 @@
   "gender_female": "Femme",
   "gender_male": "Homme",
   "gender_other": "Autre",
+  "gender_select": "Choose",
   "admin_title": "Administration",
   "admin_menu_title": "Admin menu",
   "admin_menu_show": "Show",
