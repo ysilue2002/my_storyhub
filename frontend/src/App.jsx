@@ -124,27 +124,44 @@ export default function App() {
   };
 
   useEffect(() => {
-    const loadPublicData = async () => {
+    const loadGoals = async () => {
       try {
         setStatus({ loading: true, error: '' });
-        const [goalsRes, usersRes] = await Promise.all([
-          fetch(`${API_BASE}/api/goals`),
-          fetch(`${API_BASE}/api/users`),
-        ]);
-
+        const goalsRes = await fetch(`${API_BASE}/api/goals`);
         const goalsData = await goalsRes.json();
-        const usersData = await usersRes.json();
-
         setGoals(goalsData);
-        setUsers(usersData);
         setStatus({ loading: false, error: '' });
       } catch (error) {
         setStatus({ loading: false, error: 'Erreur de chargement.' });
       }
     };
 
-    loadPublicData();
+    loadGoals();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadUsers = async () => {
+      try {
+        const query = searchQuery.trim();
+        const url = query
+          ? `${API_BASE}/api/users?q=${encodeURIComponent(query)}`
+          : `${API_BASE}/api/users`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (!active) return;
+        setUsers(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (!active) return;
+        setUsers([]);
+      }
+    };
+
+    loadUsers();
+    return () => {
+      active = false;
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     const loadAds = async () => {
@@ -414,19 +431,7 @@ export default function App() {
     if (!normalizedQuery) {
       return users.slice(0, 6);
     }
-
-    return users.filter((user) => {
-      const haystack = [
-        user.name,
-        user.handle,
-        user.city,
-        ...(user.goals || []),
-        ...(user.interests || []),
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(normalizedQuery);
-    });
+    return users;
   }, [users, normalizedQuery]);
 
   const handleSearch = () => {

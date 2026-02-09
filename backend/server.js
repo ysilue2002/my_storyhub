@@ -779,24 +779,38 @@ app.post('/api/me/cover', authRequired, coverUpload.single('file'), async (req, 
 });
 
 app.get('/api/users', async (req, res) => {
-  const query = (req.query.q || '').toLowerCase();
-  const result = await pool.query(
-    'SELECT id, name, handle, gender, age, country, city, bio, availability, goals, interests, avatar_url AS "avatarUrl", cover_url AS "coverUrl", role FROM users'
-  );
-  const data = query
-    ? result.rows.filter((user) => {
-        const haystack = [
-          user.name,
-          user.handle,
-          user.city,
-          ...(user.goals || []),
-          ...(user.interests || []),
-        ]
-          .join(' ')
-          .toLowerCase();
-        return haystack.includes(query);
-      })
-    : result.rows;
+  const query = String(req.query.q || '').trim();
+  let result;
+  if (query) {
+    const likeQuery = `%${query}%`;
+    result = await pool.query(
+      `
+        SELECT id, name, handle, gender, age, country, city, bio, availability, goals, interests,
+               avatar_url AS "avatarUrl", cover_url AS "coverUrl", role
+        FROM users
+        WHERE name ILIKE $1
+           OR email ILIKE $1
+           OR handle ILIKE $1
+           OR city ILIKE $1
+           OR country ILIKE $1
+           OR array_to_string(goals, ' ') ILIKE $1
+           OR array_to_string(interests, ' ') ILIKE $1
+        ORDER BY name ASC
+        LIMIT 50
+      `,
+      [likeQuery]
+    );
+  } else {
+    result = await pool.query(
+      `
+        SELECT id, name, handle, gender, age, country, city, bio, availability, goals, interests,
+               avatar_url AS "avatarUrl", cover_url AS "coverUrl", role
+        FROM users
+        ORDER BY name ASC
+      `
+    );
+  }
+  const data = result.rows;
   res.json(
     data.map((user) => ({
       ...user,
