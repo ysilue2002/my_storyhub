@@ -635,35 +635,6 @@ export default function Profile() {
         )}
       />
 
-      <div className="max-w-6xl mx-auto px-6 pt-6">
-        <div className="bg-white/90 border border-slate-100 rounded-2xl p-4 shadow-[var(--shadow-soft)]">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-amber-600">{t.view_title}</p>
-              <p className="text-sm text-slate-600 mt-1">{t.view_description}</p>
-            </div>
-            <div className="inline-flex rounded-full bg-slate-100 p-1">
-              <button
-                onClick={() => setViewMode('simple')}
-                className={`px-4 py-2 text-sm rounded-full transition ${
-                  isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {t.view_simple}
-              </button>
-              <button
-                onClick={() => setViewMode('full')}
-                className={`px-4 py-2 text-sm rounded-full transition ${
-                  !isSimple ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {t.view_full}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <main className="max-w-6xl mx-auto px-6 py-8">
         {currentUser && !publicProfile && showOnboarding && (
           <div className="mb-6 bg-white/90 border border-amber-200 rounded-2xl p-6">
