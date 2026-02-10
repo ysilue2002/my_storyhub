@@ -1440,7 +1440,8 @@ app.get('/api/messages/threads', authRequired, async (req, res) => {
 
   const result = await pool.query(
     `
-      SELECT c.id, c.title,
+      SELECT c.id,
+             COALESCE(u.name, c.title) AS title,
              (SELECT m.text FROM messages m
               WHERE m.conversation_id = c.id AND NOT (m.deleted_by @> ARRAY[$1]::int[])
               ORDER BY m.sent_at DESC LIMIT 1) AS "lastMessage",
@@ -1458,6 +1459,14 @@ app.get('/api/messages/threads', authRequired, async (req, res) => {
              ) AS "unreadCount"
       FROM conversations c
       JOIN conversation_participants cp ON cp.conversation_id = c.id
+      LEFT JOIN LATERAL (
+        SELECT u.name
+        FROM conversation_participants cp2
+        JOIN users u ON u.id = cp2.user_id
+        WHERE cp2.conversation_id = c.id AND cp2.user_id <> $1
+        ORDER BY u.name ASC
+        LIMIT 1
+      ) u ON TRUE
       WHERE cp.user_id = $1
     `,
     [req.user.id]
