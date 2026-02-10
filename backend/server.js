@@ -1342,11 +1342,13 @@ app.get('/api/messages', authRequired, async (req, res) => {
 
   const result = await pool.query(
     `
-      SELECT id, conversation_id AS "conversationId", from_user_id AS "fromUserId",
-             text, sent_at AS "sentAt", read_by AS "readBy"
-      FROM messages
-      WHERE conversation_id = $1 AND NOT (deleted_by @> ARRAY[$2]::int[])
-      ORDER BY sent_at ASC
+      SELECT m.id, m.conversation_id AS "conversationId", m.from_user_id AS "fromUserId",
+             m.text, m.sent_at AS "sentAt", m.read_by AS "readBy",
+             u.name AS "fromUserName"
+      FROM messages m
+      LEFT JOIN users u ON u.id = m.from_user_id
+      WHERE m.conversation_id = $1 AND NOT (m.deleted_by @> ARRAY[$2]::int[])
+      ORDER BY m.sent_at ASC
     `,
     [conversationId, req.user.id]
   );
@@ -1374,7 +1376,10 @@ app.post('/api/messages', authRequired, ensureNotSuspended, async (req, res) => 
     [text, conversationId]
   );
 
-  const message = result.rows[0];
+  const message = {
+    ...result.rows[0],
+    fromUserName: req.user.name || null,
+  };
   io.to(`conversation:${conversationId}`).emit('message:new', message);
 
   const participants = await pool.query(

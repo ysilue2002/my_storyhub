@@ -21,6 +21,7 @@
   "messages_no_message": "لا توجد رسائل بعد.",
   "messages_select": "اختر محادثة لقراءة الرسائل.",
   "messages_placeholder": "اكتب رسالة...",
+  "messages_you": "أنا",
   "messages_delete": "حذف",
   "messages_delete_confirm": "حذف هذه الرسالة؟",
   "search_no_results": "لا توجد نتائج.",

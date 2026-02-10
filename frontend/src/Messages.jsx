@@ -306,19 +306,28 @@ export default function Messages() {
                     {messagesList.length === 0 ? (
                       <p className="text-sm text-slate-500">{t.messages_no_message}</p>
                     ) : (
-                      messagesList.map((msg) => (
-                        <div key={msg.id} className={`flex ${msg.fromUserId === currentUser?.id ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm ${msg.fromUserId === currentUser?.id ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-100'}`}>
-                            <div>{msg.text}</div>
-                            <button
-                              onClick={() => handleDeleteMessage(msg.id)}
-                              className="mt-2 text-[10px] text-rose-200 underline"
-                            >
-                              {t.messages_delete}
-                            </button>
+                      messagesList.map((msg) => {
+                        const isMine = msg.fromUserId === currentUser?.id;
+                        const displayName = isMine
+                          ? t.messages_you
+                          : msg.fromUserName || selectedThread?.title || t.messages_thread;
+                        return (
+                          <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm ${isMine ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-100'}`}>
+                              <div className={`text-[11px] mb-1 ${isMine ? 'text-slate-200' : 'text-slate-400'}`}>
+                                {displayName}
+                              </div>
+                              <div>{msg.text}</div>
+                              <button
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                className={`mt-2 text-[10px] underline ${isMine ? 'text-rose-200' : 'text-rose-300'}`}
+                              >
+                                {t.messages_delete}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                   <div className="pt-3 border-t border-slate-100">

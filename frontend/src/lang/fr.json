@@ -21,6 +21,7 @@
   "messages_no_message": "Aucun message pour le moment.",
   "messages_select": "Sélectionne une conversation pour lire les messages.",
   "messages_placeholder": "Écris un message...",
+  "messages_you": "Moi",
   "messages_delete": "Supprimer",
   "messages_delete_confirm": "Supprimer ce message ?",
   "search_no_results": "Aucun résultat.",
