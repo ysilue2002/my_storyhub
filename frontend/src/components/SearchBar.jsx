@@ -18,7 +18,8 @@ export default function SearchBar({ placeholder, value, onChange, onSearch, butt
         }`}
       />
       <button
-        type="submit"
+        type="button"
+        onClick={onSearch}
         className="bg-amber-600 text-white px-6 py-3 rounded-xl hover:bg-amber-500 transition"
       >
         {buttonText}
