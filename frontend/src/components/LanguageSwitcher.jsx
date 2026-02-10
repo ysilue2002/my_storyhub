@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function LanguageSwitcher({ lang, setLang }) {
   return (
-    <div className="fixed top-16 right-6 z-30">
+    <div className="fixed top-24 right-6 z-30">
       <select
         value={lang}
         onChange={(e) => setLang(e.target.value)}
