@@ -179,6 +179,32 @@ export default function Hubmates() {
     localStorage.removeItem('authToken');
   };
 
+  const ensureConversation = async (mateId) => {
+    const response = await authFetch(`${API_BASE}/api/conversations/ensure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toUserId: mateId }),
+    });
+    const data = await response.json();
+    return data.conversationId;
+  };
+
+  const openMessagesWithMate = async (mateId, callType = null) => {
+    if (!authToken) {
+      setAuthState({ loading: false, error: t.auth_required });
+      return;
+    }
+    try {
+      const conversationId = await ensureConversation(mateId);
+      if (!conversationId) return;
+      const params = new URLSearchParams({ conversationId: String(conversationId) });
+      if (callType) params.set('call', callType);
+      window.location.href = `/messages?${params.toString()}`;
+    } catch (error) {
+      // ignore
+    }
+  };
+
   const handleAccept = async (requestId) => {
     await authFetch(`${API_BASE}/api/connection-requests/${requestId}/accept`, { method: 'POST' });
     loadHubmates();
@@ -331,6 +357,29 @@ export default function Hubmates() {
                         <div className="flex-1">
                           <p className="text-sm font-semibold">{mate.name}</p>
                           <p className="text-xs text-slate-500">{mate.handle || '-'}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openMessagesWithMate(mate.id)}
+                            className="h-9 w-9 rounded-full border border-slate-200 hover:bg-slate-50 flex items-center justify-center"
+                            title={t.message_send || 'Envoyer message'}
+                          >
+                            💬
+                          </button>
+                          <button
+                            onClick={() => openMessagesWithMate(mate.id, 'audio')}
+                            className="h-9 w-9 rounded-full border border-slate-200 hover:bg-slate-50 flex items-center justify-center"
+                            title={t.call_audio}
+                          >
+                            📞
+                          </button>
+                          <button
+                            onClick={() => openMessagesWithMate(mate.id, 'video')}
+                            className="h-9 w-9 rounded-full border border-slate-200 hover:bg-slate-50 flex items-center justify-center"
+                            title={t.call_video}
+                          >
+                            🎥
+                          </button>
                         </div>
                       </div>
                       <div className="mt-3 flex gap-2">

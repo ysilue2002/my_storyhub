@@ -34,6 +34,8 @@ export default function Messages() {
   const peerRef = useRef(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [localStream, setLocalStream] = useState(null);
+  const [autoConversationId, setAutoConversationId] = useState(null);
+  const [pendingCallType, setPendingCallType] = useState(null);
 
   const t = messages[lang];
 
@@ -41,6 +43,18 @@ export default function Messages() {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const conversationId = params.get('conversationId');
+    const call = params.get('call');
+    if (conversationId) {
+      setAutoConversationId(Number(conversationId));
+      if (call === 'audio' || call === 'video') {
+        setPendingCallType(call);
+      }
+    }
+  }, []);
 
   const authFetch = (url, options = {}) => {
     const headers = { ...(options.headers || {}) };
@@ -126,6 +140,23 @@ export default function Messages() {
     }
     setIncomingCall(null);
   }, [selectedThread]);
+
+  useEffect(() => {
+    if (!autoConversationId || threads.length === 0) return;
+    const match = threads.find((thread) => thread.id === autoConversationId);
+    if (!match) return;
+    setSelectedThread(match);
+    loadMessages(match.id);
+    setAutoConversationId(null);
+  }, [threads, autoConversationId]);
+
+  useEffect(() => {
+    if (pendingCallType && selectedThread) {
+      const callType = pendingCallType;
+      setPendingCallType(null);
+      startCall(callType);
+    }
+  }, [pendingCallType, selectedThread]);
 
   useEffect(() => {
     if (!authToken) {
@@ -454,28 +485,6 @@ export default function Messages() {
                 <>
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <div className="text-sm font-semibold">{selectedThread.title || t.messages_thread}</div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => startCall('audio')}
-                        className="text-xs border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                      >
-                        {t.call_audio}
-                      </button>
-                      <button
-                        onClick={() => startCall('video')}
-                        className="text-xs border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                      >
-                        {t.call_video}
-                      </button>
-                      {callState.active && (
-                        <button
-                          onClick={() => endCall(true)}
-                          className="text-xs border border-rose-200 text-rose-600 px-3 py-1 rounded-lg hover:bg-rose-50"
-                        >
-                          {t.call_end}
-                        </button>
-                      )}
-                    </div>
                   </div>
                   {incomingCall && (
                     <div className="mb-3 p-3 border border-amber-200 bg-amber-50 rounded-xl flex items-center justify-between">
@@ -561,6 +570,29 @@ export default function Messages() {
                   </div>
                   <div className="pt-3 border-t border-slate-100">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startCall('audio')}
+                        className="h-11 w-11 rounded-full border border-slate-200 hover:bg-slate-50 flex items-center justify-center"
+                        title={t.call_audio}
+                      >
+                        📞
+                      </button>
+                      <button
+                        onClick={() => startCall('video')}
+                        className="h-11 w-11 rounded-full border border-slate-200 hover:bg-slate-50 flex items-center justify-center"
+                        title={t.call_video}
+                      >
+                        🎥
+                      </button>
+                      {callState.active && (
+                        <button
+                          onClick={() => endCall(true)}
+                          className="h-11 w-11 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center"
+                          title={t.call_end}
+                        >
+                          ⛔
+                        </button>
+                      )}
                       <input
                         type="text"
                         value={messageText}

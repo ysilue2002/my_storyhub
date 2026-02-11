@@ -1387,6 +1387,41 @@ app.post('/api/conversations/start', authRequired, ensureNotSuspended, async (re
   res.status(201).json({ conversationId, message: msgResult.rows[0] });
 });
 
+app.post('/api/conversations/ensure', authRequired, async (req, res) => {
+  const { toUserId } = req.body || {};
+  if (!toUserId) {
+    return res.status(400).json({ error: 'toUserId requis.' });
+  }
+
+  const existing = await pool.query(
+    `
+      SELECT c.id
+      FROM conversations c
+      JOIN conversation_participants cp1 ON cp1.conversation_id = c.id AND cp1.user_id = $1
+      JOIN conversation_participants cp2 ON cp2.conversation_id = c.id AND cp2.user_id = $2
+      LIMIT 1
+    `,
+    [req.user.id, toUserId]
+  );
+
+  if (existing.rows.length > 0) {
+    return res.json({ conversationId: existing.rows[0].id });
+  }
+
+  const title = `Conversation ${req.user.id} & ${toUserId}`;
+  const convResult = await pool.query(
+    `INSERT INTO conversations (title, last_message) VALUES ($1, $2) RETURNING id`,
+    [title, '']
+  );
+  const conversationId = convResult.rows[0].id;
+  await pool.query(
+    `INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)`,
+    [conversationId, req.user.id, toUserId]
+  );
+
+  res.status(201).json({ conversationId });
+});
+
 app.get('/api/messages', authRequired, async (req, res) => {
   const { conversationId } = req.query;
   if (!conversationId) {
