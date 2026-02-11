@@ -27,6 +27,13 @@ export default function Messages() {
   const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
   const socketRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [callState, setCallState] = useState({ active: false, type: null, status: '' });
+  const [incomingCall, setIncomingCall] = useState(null);
+  const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+  const peerRef = useRef(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [localStream, setLocalStream] = useState(null);
 
   const t = messages[lang];
 
@@ -114,6 +121,13 @@ export default function Messages() {
   }, [authToken, box]);
 
   useEffect(() => {
+    if (callState.active) {
+      endCall(false);
+    }
+    setIncomingCall(null);
+  }, [selectedThread]);
+
+  useEffect(() => {
     if (!authToken) {
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -130,6 +144,39 @@ export default function Messages() {
       }
       loadThreads();
       loadAlerts();
+    });
+
+    socket.on('webrtc:offer', async ({ conversationId, offer, fromUserId }) => {
+      if (!selectedThread || selectedThread.id !== conversationId) return;
+      const hasVideo = Boolean(offer?.sdp && offer.sdp.includes('m=video'));
+      setIncomingCall({
+        conversationId,
+        fromUserId,
+        offer,
+        type: hasVideo ? 'video' : 'audio',
+      });
+    });
+
+    socket.on('webrtc:answer', async ({ conversationId, answer }) => {
+      if (!peerRef.current || !selectedThread || selectedThread.id !== conversationId) return;
+      await peerRef.current.setRemoteDescription(answer);
+      setCallState((prev) => ({ ...prev, status: 'connected' }));
+    });
+
+    socket.on('webrtc:ice', async ({ conversationId, candidate }) => {
+      if (!peerRef.current || !selectedThread || selectedThread.id !== conversationId) return;
+      if (candidate) {
+        try {
+          await peerRef.current.addIceCandidate(candidate);
+        } catch (error) {
+          // ignore
+        }
+      }
+    });
+
+    socket.on('webrtc:hangup', ({ conversationId }) => {
+      if (!selectedThread || selectedThread.id !== conversationId) return;
+      endCall(false);
     });
 
     return () => {
@@ -206,6 +253,109 @@ export default function Messages() {
     if (!searchQuery.trim()) {
       setSearchQuery('');
     }
+  };
+
+  const createPeer = (conversationId) => {
+    const peer = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    });
+
+    peer.onicecandidate = (event) => {
+      if (event.candidate && socketRef.current) {
+        socketRef.current.emit('webrtc:ice', {
+          conversationId,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    peer.ontrack = (event) => {
+      const [stream] = event.streams;
+      setRemoteStream(stream);
+      remoteStreamRef.current = stream;
+    };
+
+    peer.onconnectionstatechange = () => {
+      if (peer.connectionState === 'disconnected' || peer.connectionState === 'failed') {
+        endCall(false);
+      }
+    };
+
+    peerRef.current = peer;
+    return peer;
+  };
+
+  const startCall = async (type) => {
+    if (!selectedThread || !socketRef.current) return;
+    try {
+      setCallState({ active: true, type, status: 'calling' });
+      const constraints =
+        type === 'video' ? { audio: true, video: true } : { audio: true, video: false };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      setLocalStream(stream);
+      localStreamRef.current = stream;
+
+      const peer = createPeer(selectedThread.id);
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+
+      socketRef.current.emit('webrtc:offer', {
+        conversationId: selectedThread.id,
+        offer,
+      });
+    } catch (error) {
+      setCallState({ active: false, type: null, status: '' });
+    }
+  };
+
+  const acceptCall = async () => {
+    if (!incomingCall || !socketRef.current) return;
+    const conversationId = incomingCall.conversationId;
+    try {
+      const nextType = incomingCall.type === 'video' ? 'video' : 'audio';
+      setCallState({ active: true, type: nextType, status: 'connecting' });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: nextType === 'video',
+      });
+      setLocalStream(stream);
+      localStreamRef.current = stream;
+
+      const peer = createPeer(conversationId);
+      stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+      await peer.setRemoteDescription(incomingCall.offer);
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+
+      socketRef.current.emit('webrtc:answer', {
+        conversationId,
+        answer,
+      });
+      setIncomingCall(null);
+      setCallState((prev) => ({ ...prev, status: 'connected' }));
+    } catch (error) {
+      setIncomingCall(null);
+      endCall(false);
+    }
+  };
+
+  const endCall = (emit = true) => {
+    if (emit && socketRef.current && selectedThread) {
+      socketRef.current.emit('webrtc:hangup', { conversationId: selectedThread.id });
+    }
+    if (peerRef.current) {
+      peerRef.current.close();
+      peerRef.current = null;
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    setLocalStream(null);
+    setRemoteStream(null);
+    setCallState({ active: false, type: null, status: '' });
+    setIncomingCall(null);
   };
 
   const handleDeleteMessage = async (messageId) => {
@@ -302,6 +452,85 @@ export default function Messages() {
                 <div className="text-sm text-slate-500">{t.messages_select}</div>
               ) : (
                 <>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="text-sm font-semibold">{selectedThread.title || t.messages_thread}</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startCall('audio')}
+                        className="text-xs border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                      >
+                        {t.call_audio}
+                      </button>
+                      <button
+                        onClick={() => startCall('video')}
+                        className="text-xs border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                      >
+                        {t.call_video}
+                      </button>
+                      {callState.active && (
+                        <button
+                          onClick={() => endCall(true)}
+                          className="text-xs border border-rose-200 text-rose-600 px-3 py-1 rounded-lg hover:bg-rose-50"
+                        >
+                          {t.call_end}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {incomingCall && (
+                    <div className="mb-3 p-3 border border-amber-200 bg-amber-50 rounded-xl flex items-center justify-between">
+                      <div className="text-sm">{t.call_incoming}</div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={acceptCall}
+                          className="text-xs bg-emerald-600 text-white px-3 py-1 rounded-lg"
+                        >
+                          {t.call_accept}
+                        </button>
+                        <button
+                          onClick={() => endCall(true)}
+                          className="text-xs border border-slate-200 px-3 py-1 rounded-lg"
+                        >
+                          {t.call_decline}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {callState.active && (
+                    <div className="mb-3 grid sm:grid-cols-2 gap-3">
+                      <div className="bg-slate-100 rounded-xl p-2 text-xs text-slate-500">
+                        Local audio {localStream ? 'actif' : '...'}
+                      </div>
+                      <div className="bg-slate-100 rounded-xl p-2 text-xs text-slate-500">
+                        Remote audio {remoteStream ? 'actif' : '...'}
+                      </div>
+                      {callState.type === 'video' && (
+                        <div className="sm:col-span-2 grid sm:grid-cols-2 gap-3">
+                          <video
+                            autoPlay
+                            muted
+                            playsInline
+                            ref={(el) => {
+                              if (el && localStream) {
+                                el.srcObject = localStream;
+                              }
+                            }}
+                            className="w-full h-48 bg-black rounded-xl object-cover"
+                          />
+                          <video
+                            autoPlay
+                            playsInline
+                            ref={(el) => {
+                              if (el && remoteStream) {
+                                el.srcObject = remoteStream;
+                              }
+                            }}
+                            className="w-full h-48 bg-black rounded-xl object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex-1 overflow-y-auto space-y-3">
                     {messagesList.length === 0 ? (
                       <p className="text-sm text-slate-500">{t.messages_no_message}</p>

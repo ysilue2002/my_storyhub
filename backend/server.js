@@ -179,6 +179,68 @@ io.on('connection', async (socket) => {
   } catch (error) {
     // no-op for MVP
   }
+
+  socket.on('webrtc:offer', ({ conversationId, offer, toUserId }) => {
+    if (conversationId) {
+      io.to(`conversation:${conversationId}`).emit('webrtc:offer', {
+        conversationId,
+        offer,
+        fromUserId: socket.user.id,
+      });
+    } else if (toUserId) {
+      io.to(`user:${toUserId}`).emit('webrtc:offer', {
+        offer,
+        fromUserId: socket.user.id,
+      });
+    }
+  });
+
+  socket.on('webrtc:answer', ({ conversationId, answer, toUserId }) => {
+    if (conversationId) {
+      io.to(`conversation:${conversationId}`).emit('webrtc:answer', {
+        conversationId,
+        answer,
+        fromUserId: socket.user.id,
+      });
+    } else if (toUserId) {
+      io.to(`user:${toUserId}`).emit('webrtc:answer', {
+        answer,
+        fromUserId: socket.user.id,
+      });
+    }
+  });
+
+  socket.on('webrtc:ice', ({ conversationId, candidate, toUserId }) => {
+    if (conversationId) {
+      io.to(`conversation:${conversationId}`).emit('webrtc:ice', {
+        conversationId,
+        candidate,
+        fromUserId: socket.user.id,
+      });
+    } else if (toUserId) {
+      io.to(`user:${toUserId}`).emit('webrtc:ice', {
+        candidate,
+        fromUserId: socket.user.id,
+      });
+    }
+  });
+
+  socket.on('webrtc:hangup', ({ conversationId, toUserId }) => {
+    if (conversationId) {
+      io.to(`conversation:${conversationId}`).emit('webrtc:hangup', {
+        conversationId,
+        fromUserId: socket.user.id,
+      });
+    } else if (toUserId) {
+      io.to(`user:${toUserId}`).emit('webrtc:hangup', {
+        fromUserId: socket.user.id,
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    // no-op
+  });
 });
 
 const initDb = async () => {
