@@ -167,6 +167,8 @@
   "goal_public_label": "Visible publicly",
   "goal_public_yes": "Public",
   "goal_public_no": "Private",
+  "goal_new_button": "New goal",
+  "goal_limit_reached": "Limit reached: maximum 3 goals.",
   "goal_status_done": "Achieved",
   "goal_time_window": "Time window",
   "goal_time_progress": "Time progress",

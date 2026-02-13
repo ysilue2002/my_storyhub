@@ -83,6 +83,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
   const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
+  const isGoalsPage = currentHash === '#goals';
 
   useEffect(() => {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
@@ -835,6 +836,10 @@ export default function App() {
   const handleGoalSubmit = async (event) => {
     event.preventDefault();
     if (!authToken) return;
+    if (!goalForm.id && myGoals.length >= 3) {
+      setGoalStatus({ error: t.goal_limit_reached, success: '' });
+      return;
+    }
     if (!goalForm.title.trim()) {
       setGoalStatus({ error: t.error_required, success: '' });
       return;
@@ -893,6 +898,7 @@ export default function App() {
       setMyGoals((prev) => [data, ...prev]);
     }
     resetGoalForm();
+    setShowGoalForm(false);
     setGoalStatus({ error: '', success: t.goal_saved });
   };
 
@@ -1072,7 +1078,8 @@ export default function App() {
           </div>
         )}
 
-        <section id="feed" className="space-y-4 mb-8">
+        {!isGoalsPage && (
+          <section id="feed" className="space-y-4 mb-8">
           <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
             Objectifs Hubmates
           </h2>
@@ -1137,7 +1144,8 @@ export default function App() {
               })}
             </div>
           )}
-        </section>
+          </section>
+        )}
 
         <section id="goals" className="space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -1150,19 +1158,15 @@ export default function App() {
                 onClick={() => {
                   setShowGoalForm((prev) => !prev);
                   setDeleteMode(false);
+                  setGoalStatus({ error: '', success: '' });
+                  if (showGoalForm) {
+                    resetGoalForm();
+                  }
                 }}
                 disabled={!authToken}
-                className="text-sm bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-500 transition disabled:opacity-60"
+                className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-500 transition disabled:opacity-60"
               >
-                {t.goal_create}
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteButton}
-                disabled={!authToken || myGoals.length === 0}
-                className="text-sm text-slate-700 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition disabled:opacity-60"
-              >
-                {t.goal_delete}
+                {t.goal_new_button}
               </button>
             </div>
           </div>
@@ -1308,7 +1312,7 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     type="submit"
-                    disabled={!authToken}
+                    disabled={!authToken || (!goalForm.id && myGoals.length >= 3)}
                     className="flex-1 bg-amber-600 text-white px-4 py-3 rounded-xl hover:bg-amber-500 transition disabled:opacity-60"
                   >
                     {goalForm.id ? t.goal_update : t.goal_create}

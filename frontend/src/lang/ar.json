@@ -167,6 +167,8 @@
   "goal_public_label": "مرئي للعامة",
   "goal_public_yes": "عام",
   "goal_public_no": "خاص",
+  "goal_new_button": "هدف جديد",
+  "goal_limit_reached": "تم بلوغ الحد: 3 أهداف كحد أقصى.",
   "goal_status_done": "تم الإنجاز",
   "goal_time_window": "الفترة",
   "goal_time_progress": "التقدم الزمني",
