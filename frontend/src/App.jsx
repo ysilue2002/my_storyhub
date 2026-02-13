@@ -52,6 +52,7 @@ export default function App() {
     description: '',
     category: '',
     progress: 0,
+    isPublic: false,
     tags: '',
     imageUrl: '',
     startDate: '',
@@ -821,6 +822,7 @@ export default function App() {
       description: '',
       category: '',
       progress: 0,
+      isPublic: false,
       tags: '',
       imageUrl: '',
       startDate: '',
@@ -853,6 +855,7 @@ export default function App() {
       description: goalForm.description,
       category: goalForm.category,
       progress: Number(goalForm.progress) || 0,
+      isPublic: Boolean(goalForm.isPublic),
       tags: goalForm.tags
         .split(',')
         .map((item) => item.trim())
@@ -906,6 +909,7 @@ export default function App() {
       description: goal.description || '',
       category: goal.category || '',
       progress: Number(goal.progress) || 0,
+      isPublic: Boolean(goal.isPublic),
       tags: Array.isArray(goal.tags) ? goal.tags.join(', ') : '',
       imageUrl: goal.imageUrl || '',
       startDate: goal.startDate ? String(goal.startDate).slice(0, 10) : '',
@@ -1133,6 +1137,249 @@ export default function App() {
               })}
             </div>
           )}
+        </section>
+
+        <section id="goals" className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+              {t.nav_goals}
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGoalForm((prev) => !prev);
+                  setDeleteMode(false);
+                }}
+                disabled={!authToken}
+                className="text-sm bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-500 transition disabled:opacity-60"
+              >
+                {t.goal_create}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteButton}
+                disabled={!authToken || myGoals.length === 0}
+                className="text-sm text-slate-700 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition disabled:opacity-60"
+              >
+                {t.goal_delete}
+              </button>
+            </div>
+          </div>
+
+          {showGoalForm && (
+            <div className="bg-white/90 border border-slate-100 rounded-2xl p-6 shadow-[var(--shadow-soft)]">
+              {goalStatus.error && (
+                <div className="text-sm text-rose-600 mb-3">{goalStatus.error}</div>
+              )}
+              {goalStatus.success && (
+                <div className="text-sm text-emerald-600 mb-3">{goalStatus.success}</div>
+              )}
+              <form onSubmit={handleGoalSubmit} className="grid gap-3">
+                <input
+                  type="text"
+                  value={goalForm.title}
+                  onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })}
+                  placeholder={t.goal_title}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                />
+                <textarea
+                  rows={3}
+                  value={goalForm.description}
+                  onChange={(event) => setGoalForm({ ...goalForm, description: event.target.value })}
+                  placeholder={t.goal_description}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                />
+                <div className="grid md:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={goalForm.category}
+                    onChange={(event) => setGoalForm({ ...goalForm, category: event.target.value })}
+                    placeholder={t.goal_category}
+                    disabled={!authToken}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                  />
+                  <select
+                    value={goalForm.priority}
+                    onChange={(event) => setGoalForm({ ...goalForm, priority: event.target.value })}
+                    disabled={!authToken}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                  >
+                    <option value="high">{t.goal_priority_high}</option>
+                    <option value="normal">{t.goal_priority_normal}</option>
+                    <option value="low">{t.goal_priority_low}</option>
+                  </select>
+                </div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={goalForm.progress}
+                    onChange={(event) => setGoalForm({ ...goalForm, progress: event.target.value })}
+                    placeholder={t.goal_progress}
+                    disabled={!authToken}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                  />
+                  <label className="flex items-center gap-2 px-4 py-3 border border-slate-200 rounded-xl bg-white/80 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(goalForm.isPublic)}
+                      onChange={(event) => setGoalForm({ ...goalForm, isPublic: event.target.checked })}
+                      disabled={!authToken}
+                    />
+                    {t.goal_public_label}
+                  </label>
+                </div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <input
+                    type="date"
+                    value={goalForm.startDate}
+                    onChange={(event) => setGoalForm({ ...goalForm, startDate: event.target.value })}
+                    disabled={!authToken}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                  />
+                  <input
+                    type="date"
+                    value={goalForm.endDate}
+                    onChange={(event) => setGoalForm({ ...goalForm, endDate: event.target.value })}
+                    disabled={!authToken}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={goalForm.tags}
+                  onChange={(event) => setGoalForm({ ...goalForm, tags: event.target.value })}
+                  placeholder={t.goal_tags}
+                  disabled={!authToken}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
+                />
+                <div className="border border-slate-200 rounded-xl p-3 bg-white/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs text-slate-500">{t.goal_steps}</label>
+                    <button
+                      type="button"
+                      onClick={addGoalStep}
+                      disabled={!authToken || (goalForm.steps || []).length >= 5}
+                      className="text-xs text-slate-600 border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {t.goal_steps_add}
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(goalForm.steps || []).map((step, index) => (
+                      <div key={`step-${index}`} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(step.done)}
+                          onChange={(event) => updateGoalStep(index, { done: event.target.checked })}
+                          disabled={!authToken}
+                        />
+                        <input
+                          type="text"
+                          value={step.title}
+                          onChange={(event) => updateGoalStep(index, { title: event.target.value })}
+                          placeholder={`${t.goal_step_label} ${index + 1}`}
+                          disabled={!authToken}
+                          className="flex-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeGoalStep(index)}
+                          disabled={!authToken}
+                          className="text-xs text-rose-600 border border-rose-200 px-2 py-1 rounded hover:bg-rose-50"
+                        >
+                          {t.goal_step_remove}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs text-slate-500">{t.goal_image}</label>
+                  <input type="file" accept="image/*" onChange={handleGoalImageUpload} disabled={!authToken} />
+                  {goalForm.imageUrl && (
+                    <img src={goalForm.imageUrl} alt="goal" className="h-28 w-full rounded-xl object-cover" />
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="submit"
+                    disabled={!authToken}
+                    className="flex-1 bg-amber-600 text-white px-4 py-3 rounded-xl hover:bg-amber-500 transition disabled:opacity-60"
+                  >
+                    {goalForm.id ? t.goal_update : t.goal_create}
+                  </button>
+                  {goalForm.id && (
+                    <button
+                      type="button"
+                      onClick={resetGoalForm}
+                      className="flex-1 border border-slate-200 px-4 py-3 rounded-xl hover:bg-slate-50 transition"
+                    >
+                      {t.goal_reset}
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
+
+          <div className="mt-2 flex flex-col gap-3">
+            {!authToken ? (
+              <p className="text-sm text-slate-500">{t.auth_required}</p>
+            ) : myGoals.length === 0 ? (
+              <p className="text-sm text-slate-500">{t.goal_empty}</p>
+            ) : (
+              myGoals.map((goal) => (
+                <div key={goal.id} className="bg-white/90 border border-slate-100 rounded-2xl p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{goal.title}</p>
+                      <p className="text-xs text-slate-500">{goal.category || '-'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">{goal.progress}%</span>
+                      <span className={`text-xs px-2 py-1 rounded-full ${goal.isPublic ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {goal.isPublic ? t.goal_public_yes : t.goal_public_no}
+                      </span>
+                    </div>
+                  </div>
+                  {goal.description && (
+                    <p className="text-sm text-slate-600 mt-2">{goal.description}</p>
+                  )}
+                  <div className="mt-3 flex items-center gap-2">
+                    {!deleteMode && (
+                      <button
+                        type="button"
+                        onClick={() => handleGoalEdit(goal)}
+                        className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                      >
+                        {t.goal_update}
+                      </button>
+                    )}
+                    {deleteMode && (
+                      <label className="inline-flex items-center gap-2 text-xs text-slate-500">
+                        <input
+                          type="checkbox"
+                          checked={selectedGoalIds.includes(goal.id)}
+                          onChange={(event) => {
+                            const checked = event.target.checked;
+                            setSelectedGoalIds((prev) =>
+                              checked ? [...prev, goal.id] : prev.filter((id) => id !== goal.id)
+                            );
+                          }}
+                        />
+                        {t.goal_delete}
+                      </label>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </section>
       </main>
 

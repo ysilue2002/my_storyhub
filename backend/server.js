@@ -280,6 +280,7 @@ const initDb = async () => {
       description TEXT,
       category TEXT,
       progress INTEGER DEFAULT 0,
+      is_public BOOLEAN DEFAULT FALSE,
       image_url TEXT,
       start_date DATE,
       end_date DATE,
@@ -352,6 +353,7 @@ const initDb = async () => {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS country TEXT;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS image_url TEXT;`);
+  await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS start_date DATE;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS end_date DATE;`);
   await pool.query(`ALTER TABLE goals ADD COLUMN IF NOT EXISTS steps JSONB DEFAULT '[]'::jsonb;`);
@@ -965,10 +967,11 @@ app.get('/api/goals', async (req, res) => {
   const query = (req.query.q || '').toLowerCase();
   const ownerId = req.query.ownerId ? Number(req.query.ownerId) : null;
   const result = await pool.query(
-    `SELECT id, owner_id AS "ownerId", title, description, category, progress, tags,
+    `SELECT id, owner_id AS "ownerId", title, description, category, progress, is_public AS "isPublic", tags,
             image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
             steps, priority
-     FROM goals`
+     FROM goals
+     WHERE is_public = TRUE`
   );
   const data = query
     ? result.rows.filter((goal) => {
@@ -985,7 +988,7 @@ app.get('/api/goals', async (req, res) => {
 app.get('/api/my-goals', authRequired, async (req, res) => {
   const result = await pool.query(
     `
-      SELECT id, owner_id AS "ownerId", title, description, category, progress, tags,
+      SELECT id, owner_id AS "ownerId", title, description, category, progress, is_public AS "isPublic", tags,
              image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
              steps, priority
       FROM goals
@@ -998,7 +1001,7 @@ app.get('/api/my-goals', authRequired, async (req, res) => {
 });
 
 app.post('/api/goals', authRequired, async (req, res) => {
-  const { title, description, category, progress, tags, imageUrl, startDate, endDate, steps, priority } = req.body || {};
+  const { title, description, category, progress, isPublic, tags, imageUrl, startDate, endDate, steps, priority } = req.body || {};
   if (!title) {
     return res.status(400).json({ error: 'title requis.' });
   }
@@ -1011,9 +1014,9 @@ app.post('/api/goals', authRequired, async (req, res) => {
 
   const result = await pool.query(
     `
-      INSERT INTO goals (owner_id, title, description, category, progress, tags, image_url, start_date, end_date, steps, priority)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
-      RETURNING id, owner_id AS "ownerId", title, description, category, progress, tags,
+      INSERT INTO goals (owner_id, title, description, category, progress, is_public, tags, image_url, start_date, end_date, steps, priority)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)
+      RETURNING id, owner_id AS "ownerId", title, description, category, progress, is_public AS "isPublic", tags,
                 image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
                 steps, priority
     `,
@@ -1023,6 +1026,7 @@ app.post('/api/goals', authRequired, async (req, res) => {
       description || '',
       category || '',
       progress || 0,
+      Boolean(isPublic),
       tags || [],
       imageUrl || null,
       startDate || null,
@@ -1038,7 +1042,7 @@ app.post('/api/goals', authRequired, async (req, res) => {
 
 app.put('/api/goals/:id', authRequired, async (req, res) => {
   const { id } = req.params;
-  const { title, description, category, progress, tags, imageUrl, startDate, endDate, steps, priority } = req.body || {};
+  const { title, description, category, progress, isPublic, tags, imageUrl, startDate, endDate, steps, priority } = req.body || {};
   if (progress !== undefined && (progress < 0 || progress > 100)) {
     return res.status(400).json({ error: 'progress invalide.' });
   }
@@ -1058,14 +1062,15 @@ app.put('/api/goals/:id', authRequired, async (req, res) => {
           description = COALESCE($2, description),
           category = COALESCE($3, category),
           progress = COALESCE($4, progress),
-          tags = COALESCE($5, tags),
-          image_url = COALESCE($6, image_url),
-          start_date = COALESCE($7, start_date),
-          end_date = COALESCE($8, end_date),
-          steps = COALESCE($9::jsonb, steps),
-          priority = COALESCE($10, priority)
-      WHERE id = $11 AND owner_id = $12
-      RETURNING id, owner_id AS "ownerId", title, description, category, progress, tags,
+          is_public = COALESCE($5, is_public),
+          tags = COALESCE($6, tags),
+          image_url = COALESCE($7, image_url),
+          start_date = COALESCE($8, start_date),
+          end_date = COALESCE($9, end_date),
+          steps = COALESCE($10::jsonb, steps),
+          priority = COALESCE($11, priority)
+      WHERE id = $12 AND owner_id = $13
+      RETURNING id, owner_id AS "ownerId", title, description, category, progress, is_public AS "isPublic", tags,
                 image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
                 steps, priority
     `,
@@ -1074,6 +1079,7 @@ app.put('/api/goals/:id', authRequired, async (req, res) => {
       description,
       category,
       progress,
+      typeof isPublic === 'boolean' ? isPublic : null,
       tags,
       imageUrl,
       startDate,
