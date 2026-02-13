@@ -1012,7 +1012,7 @@ app.post('/api/goals', authRequired, async (req, res) => {
   const result = await pool.query(
     `
       INSERT INTO goals (owner_id, title, description, category, progress, tags, image_url, start_date, end_date, steps, priority)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
       RETURNING id, owner_id AS "ownerId", title, description, category, progress, tags,
                 image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
                 steps, priority
@@ -1027,7 +1027,7 @@ app.post('/api/goals', authRequired, async (req, res) => {
       imageUrl || null,
       startDate || null,
       endDate || null,
-      Array.isArray(steps) ? steps : [],
+      JSON.stringify(Array.isArray(steps) ? steps : []),
       priority || 'normal',
     ]
   );
@@ -1062,14 +1062,27 @@ app.put('/api/goals/:id', authRequired, async (req, res) => {
           image_url = COALESCE($6, image_url),
           start_date = COALESCE($7, start_date),
           end_date = COALESCE($8, end_date),
-          steps = COALESCE($9, steps),
+          steps = COALESCE($9::jsonb, steps),
           priority = COALESCE($10, priority)
       WHERE id = $11 AND owner_id = $12
       RETURNING id, owner_id AS "ownerId", title, description, category, progress, tags,
                 image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
                 steps, priority
     `,
-    [title, description, category, progress, tags, imageUrl, startDate, endDate, Array.isArray(steps) ? steps : null, priority, id, req.user.id]
+    [
+      title,
+      description,
+      category,
+      progress,
+      tags,
+      imageUrl,
+      startDate,
+      endDate,
+      Array.isArray(steps) ? JSON.stringify(steps) : null,
+      priority,
+      id,
+      req.user.id,
+    ]
   );
 
   if (result.rows.length === 0) {
