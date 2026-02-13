@@ -773,6 +773,105 @@ export default function App() {
     setTimeout(() => setToast(''), 2400);
   };
 
+  const resetGoalForm = () => {
+    setGoalForm({
+      id: null,
+      title: '',
+      description: '',
+      category: '',
+      progress: 0,
+      tags: '',
+      imageUrl: '',
+      startDate: '',
+      endDate: '',
+      priority: 'normal',
+      steps: [{ title: '', done: false }],
+    });
+  };
+
+  const handleGoalSubmit = async (event) => {
+    event.preventDefault();
+    if (!authToken) return;
+    if (!goalForm.title.trim()) {
+      setGoalStatus({ error: t.error_required, success: '' });
+      return;
+    }
+    if (Number(goalForm.progress) < 0 || Number(goalForm.progress) > 100) {
+      setGoalStatus({ error: t.error_progress, success: '' });
+      return;
+    }
+    const cleanedSteps = (goalForm.steps || [])
+      .map((step) => ({ title: String(step.title || '').trim(), done: Boolean(step.done) }))
+      .filter((step) => step.title);
+    if (cleanedSteps.length > 5) {
+      setGoalStatus({ error: t.error_steps_limit, success: '' });
+      return;
+    }
+    const payload = {
+      title: goalForm.title,
+      description: goalForm.description,
+      category: goalForm.category,
+      progress: Number(goalForm.progress) || 0,
+      tags: goalForm.tags
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      imageUrl: goalForm.imageUrl || null,
+      startDate: goalForm.startDate || null,
+      endDate: goalForm.endDate || null,
+      priority: goalForm.priority || 'normal',
+      steps: cleanedSteps,
+    };
+
+    if (goalForm.id) {
+      const response = await authFetch(`${API_BASE}/api/goals/${goalForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setGoalStatus({ error: data.error || t.error_required, success: '' });
+        return;
+      }
+      setMyGoals((prev) => prev.map((goal) => (goal.id === data.id ? data : goal)));
+    } else {
+      const response = await authFetch(`${API_BASE}/api/goals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setGoalStatus({ error: data.error || t.error_required, success: '' });
+        return;
+      }
+      setMyGoals((prev) => [data, ...prev]);
+    }
+    resetGoalForm();
+    setGoalStatus({ error: '', success: t.goal_saved });
+  };
+
+  const handleGoalDelete = async (goalId) => {
+    if (!authToken) return;
+    await authFetch(`${API_BASE}/api/goals/${goalId}`, { method: 'DELETE' });
+    setMyGoals((prev) => prev.filter((goal) => goal.id !== goalId));
+  };
+
+  const handleDeleteButton = async () => {
+    if (!deleteMode) {
+      setDeleteMode(true);
+      return;
+    }
+    if (selectedGoalIds.length === 0) {
+      showToast(t.goal_delete_confirm);
+      return;
+    }
+    await Promise.all(selectedGoalIds.map((id) => handleGoalDelete(id)));
+    setSelectedGoalIds([]);
+    setDeleteMode(false);
+  };
+
 
   const backgroundImageUrl = 'https://wallpapers.com/images/hd/inspirational-2560-x-1440-background-bgnodhf38mjuz41d.jpg';
   const headerSearch = (
@@ -1213,103 +1312,3 @@ export default function App() {
     </div>
   );
 }
-
-
-  const resetGoalForm = () => {
-    setGoalForm({
-      id: null,
-      title: '',
-      description: '',
-      category: '',
-      progress: 0,
-      tags: '',
-      imageUrl: '',
-      startDate: '',
-      endDate: '',
-      priority: 'normal',
-      steps: [{ title: '', done: false }],
-    });
-  };
-
-  const handleGoalSubmit = async (event) => {
-    event.preventDefault();
-    if (!authToken) return;
-    if (!goalForm.title.trim()) {
-      setGoalStatus({ error: t.error_required, success: '' });
-      return;
-    }
-    if (Number(goalForm.progress) < 0 || Number(goalForm.progress) > 100) {
-      setGoalStatus({ error: t.error_progress, success: '' });
-      return;
-    }
-    const cleanedSteps = (goalForm.steps || [])
-      .map((step) => ({ title: String(step.title || '').trim(), done: Boolean(step.done) }))
-      .filter((step) => step.title);
-    if (cleanedSteps.length > 5) {
-      setGoalStatus({ error: t.error_steps_limit, success: '' });
-      return;
-    }
-    const payload = {
-      title: goalForm.title,
-      description: goalForm.description,
-      category: goalForm.category,
-      progress: Number(goalForm.progress) || 0,
-      tags: goalForm.tags
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
-      imageUrl: goalForm.imageUrl || null,
-      startDate: goalForm.startDate || null,
-      endDate: goalForm.endDate || null,
-      priority: goalForm.priority || 'normal',
-      steps: cleanedSteps,
-    };
-
-    if (goalForm.id) {
-      const response = await authFetch(`${API_BASE}/api/goals/${goalForm.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setGoalStatus({ error: data.error || t.error_required, success: '' });
-        return;
-      }
-      setMyGoals((prev) => prev.map((goal) => (goal.id === data.id ? data : goal)));
-    } else {
-      const response = await authFetch(`${API_BASE}/api/goals`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setGoalStatus({ error: data.error || t.error_required, success: '' });
-        return;
-      }
-      setMyGoals((prev) => [data, ...prev]);
-    }
-    resetGoalForm();
-    setGoalStatus({ error: '', success: t.goal_saved });
-  };
-
-  const handleGoalDelete = async (goalId) => {
-    if (!authToken) return;
-    await authFetch(`${API_BASE}/api/goals/${goalId}`, { method: 'DELETE' });
-    setMyGoals((prev) => prev.filter((goal) => goal.id !== goalId));
-  };
-
-  const handleDeleteButton = async () => {
-    if (!deleteMode) {
-      setDeleteMode(true);
-      return;
-    }
-    if (selectedGoalIds.length === 0) {
-      showToast(t.goal_delete_confirm);
-      return;
-    }
-    await Promise.all(selectedGoalIds.map((id) => handleGoalDelete(id)));
-    setSelectedGoalIds([]);
-    setDeleteMode(false);
-  };
