@@ -53,7 +53,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGINS === '*') return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   },
 });
