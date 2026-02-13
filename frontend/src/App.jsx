@@ -435,6 +435,12 @@ export default function App() {
 
   const goalsToShow = isSimple ? filteredGoals.slice(0, 4) : filteredGoals;
 
+  const usersById = useMemo(() => {
+    const map = new Map();
+    users.forEach((user) => map.set(user.id, user));
+    return map;
+  }, [users]);
+
   const filteredUsers = useMemo(() => {
     if (!normalizedQuery) {
       return users.slice(0, 6);
@@ -1026,6 +1032,69 @@ export default function App() {
             {status.error}
           </div>
         )}
+
+        <section id="feed" className="space-y-4 mb-8">
+          <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+            {t.goals_title}
+          </h2>
+          {goalsToShow.length === 0 ? (
+            <div className="bg-white/90 border border-slate-100 rounded-2xl p-5 text-sm text-slate-500">
+              {t.goal_empty}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {goalsToShow.map((goal) => {
+                const owner = usersById.get(goal.ownerId);
+                const ownerName = owner?.name || `User #${goal.ownerId}`;
+                const ownerAvatar = owner?.avatarUrl || null;
+                return (
+                  <article key={`feed-${goal.id}`} className="bg-white/90 border border-slate-100 rounded-2xl p-5 shadow-[var(--shadow-soft)]">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-11 w-11 rounded-full bg-slate-100 overflow-hidden">
+                        {ownerAvatar ? (
+                          <img src={ownerAvatar} alt={ownerName} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-slate-400 font-semibold">
+                            {ownerName.slice(0, 1)}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{ownerName}</p>
+                        <p className="text-xs text-slate-500">{goal.category || t.goals_title}</p>
+                      </div>
+                    </div>
+                    <h3 className="text-base font-semibold text-slate-900">{goal.title}</h3>
+                    {goal.description && (
+                      <p className="text-sm text-slate-600 mt-2">{goal.description}</p>
+                    )}
+                    {goal.imageUrl && (
+                      <img src={goal.imageUrl} alt={goal.title} className="mt-3 h-56 w-full rounded-xl object-cover" />
+                    )}
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                        <span>{t.goal_progress}</span>
+                        <span>{Number(goal.progress) || 0}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full bg-amber-500" style={{ width: `${Math.max(0, Math.min(Number(goal.progress) || 0, 100))}%` }} />
+                      </div>
+                    </div>
+                    {(goal.tags || []).length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(goal.tags || []).map((tag) => (
+                          <span key={`feed-tag-${goal.id}-${tag}`} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         <section id="goals" className="space-y-4">
           <div className="flex items-center justify-between gap-6">
