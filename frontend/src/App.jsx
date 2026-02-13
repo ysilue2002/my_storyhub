@@ -4,7 +4,6 @@ import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 import Footer from './components/Footer';
 import LanguageSwitcher from './components/LanguageSwitcher';
-import AuthCard from './components/AuthCard';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
@@ -62,6 +61,7 @@ export default function App() {
   });
   const [ads, setAds] = useState([]);
   const [hubmateSuggestions, setHubmateSuggestions] = useState([]);
+  const [hubmateIds, setHubmateIds] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [hubmateFilters, setHubmateFilters] = useState(() => {
@@ -296,6 +296,24 @@ export default function App() {
   }, [authToken]);
 
   useEffect(() => {
+    const loadHubmateIds = async () => {
+      if (!authToken) {
+        setHubmateIds([]);
+        return;
+      }
+      try {
+        const response = await authFetch(`${API_BASE}/api/hubmates`);
+        const data = await response.json();
+        const ids = Array.isArray(data) ? data.map((item) => item.id).filter(Boolean) : [];
+        setHubmateIds(ids);
+      } catch (error) {
+        setHubmateIds([]);
+      }
+    };
+    loadHubmateIds();
+  }, [authToken]);
+
+  useEffect(() => {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
 
@@ -416,11 +434,14 @@ export default function App() {
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const filteredGoals = useMemo(() => {
+    const hubmatesGoals = authToken
+      ? goals.filter((goal) => hubmateIds.includes(goal.ownerId))
+      : [];
     if (!normalizedQuery) {
-      return goals.slice(0, 6);
+      return hubmatesGoals.slice(0, 20);
     }
 
-    return goals.filter((goal) => {
+    return hubmatesGoals.filter((goal) => {
       const haystack = [
         goal.title,
         goal.category,
@@ -431,7 +452,7 @@ export default function App() {
         .toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [goals, normalizedQuery]);
+  }, [goals, hubmateIds, normalizedQuery, authToken]);
 
   const priorityRank = { high: 0, normal: 1, low: 2 };
   const sortedGoalsByPriority = useMemo(
@@ -1048,15 +1069,14 @@ export default function App() {
         )}
 
         <section id="feed" className="space-y-4 mb-8">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-              {t.goals_title}
-            </h2>
-            <span className="text-xs text-slate-500 px-2 py-1 rounded-full border border-slate-200 bg-white/70">
-              {`Priorite: ${t.goal_priority_high} -> ${t.goal_priority_normal} -> ${t.goal_priority_low}`}
-            </span>
-          </div>
-          {goalsToShow.length === 0 ? (
+          <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+            Objectifs Hubmates
+          </h2>
+          {!authToken ? (
+            <div className="bg-white/90 border border-slate-100 rounded-2xl p-5 text-sm text-slate-500">
+              {t.auth_required}
+            </div>
+          ) : goalsToShow.length === 0 ? (
             <div className="bg-white/90 border border-slate-100 rounded-2xl p-5 text-sm text-slate-500">
               {t.goal_empty}
             </div>
@@ -1113,321 +1133,6 @@ export default function App() {
               })}
             </div>
           )}
-        </section>
-
-        <section id="goals" className="space-y-4">
-          <div className="flex items-center justify-between gap-6">
-            <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-              {t.goals_title}
-            </h2>
-            <div className="w-full max-w-sm flex flex-col gap-3">
-              <AuthCard
-                t={t}
-                lang={lang}
-                user={currentUser}
-                onLogin={handleLogin}
-                onRegister={handleRegister}
-                onLogout={handleLogout}
-                loading={authState.loading}
-                error={authState.error}
-              />
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowGoalForm((prev) => !prev)}
-                  className="text-sm bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-500 transition"
-                >
-                  {t.goal_create}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteButton}
-                  disabled={!authToken || myGoals.length === 0}
-                  className="text-sm text-slate-700 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition disabled:opacity-60"
-                >
-                  {t.goal_delete}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {showGoalForm && (
-            <div className="bg-white/90 border border-slate-100 rounded-2xl p-6 shadow-[var(--shadow-soft)]">
-              <h2 className={`text-lg font-semibold mb-4 ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-                {t.goals_title}
-              </h2>
-              {goalStatus.error && (
-                <div className="text-sm text-rose-600 mb-3">{goalStatus.error}</div>
-              )}
-              {goalStatus.success && (
-                <div className="text-sm text-emerald-600 mb-3">{goalStatus.success}</div>
-              )}
-              <form onSubmit={handleGoalSubmit} className="grid gap-3">
-                <input
-                  type="text"
-                  value={goalForm.title}
-                  onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })}
-                  placeholder={t.goal_title}
-                  disabled={!authToken}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-                />
-                <textarea
-                  rows={3}
-                  value={goalForm.description}
-                  onChange={(event) => setGoalForm({ ...goalForm, description: event.target.value })}
-                  placeholder={t.goal_description}
-                  disabled={!authToken}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-                />
-                <input
-                  type="text"
-                  value={goalForm.category}
-                  onChange={(event) => setGoalForm({ ...goalForm, category: event.target.value })}
-                  placeholder={t.goal_category}
-                  disabled={!authToken}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-                />
-                <select
-                  value={goalForm.priority}
-                  onChange={(event) => setGoalForm({ ...goalForm, priority: event.target.value })}
-                  disabled={!authToken}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-                >
-                  <option value="high">{t.goal_priority_high}</option>
-                  <option value="normal">{t.goal_priority_normal}</option>
-                  <option value="low">{t.goal_priority_low}</option>
-                </select>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={goalForm.progress}
-                  onChange={(event) => setGoalForm({ ...goalForm, progress: event.target.value })}
-                  placeholder={t.goal_progress}
-                  disabled={!authToken}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-                />
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-slate-500">{t.goal_start_date}</label>
-                    <input
-                      type="date"
-                      value={goalForm.startDate}
-                      onChange={(event) => setGoalForm({ ...goalForm, startDate: event.target.value })}
-                      disabled={!authToken}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-slate-500">{t.goal_end_date}</label>
-                    <input
-                      type="date"
-                      value={goalForm.endDate}
-                      onChange={(event) => setGoalForm({ ...goalForm, endDate: event.target.value })}
-                      disabled={!authToken}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-                    />
-                  </div>
-                </div>
-                <input
-                  type="text"
-                  value={goalForm.tags}
-                  onChange={(event) => setGoalForm({ ...goalForm, tags: event.target.value })}
-                  placeholder={t.goal_tags}
-                  disabled={!authToken}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/80"
-                />
-                <div className="border border-slate-200 rounded-xl p-3 bg-white/80">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-slate-500">{t.goal_steps}</label>
-                    <button
-                      type="button"
-                      onClick={addGoalStep}
-                      disabled={!authToken || (goalForm.steps || []).length >= 5}
-                      className="text-xs text-slate-600 border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 disabled:opacity-60"
-                    >
-                      {t.goal_steps_add}
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {(goalForm.steps || []).map((step, index) => (
-                      <div key={`step-${index}`} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(step.done)}
-                          onChange={(event) => updateGoalStep(index, { done: event.target.checked })}
-                          disabled={!authToken}
-                        />
-                        <input
-                          type="text"
-                          value={step.title}
-                          onChange={(event) => updateGoalStep(index, { title: event.target.value })}
-                          placeholder={`${t.goal_step_label} ${index + 1}`}
-                          disabled={!authToken}
-                          className="flex-1 px-3 py-2 border border-slate-200 rounded-lg bg-white"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeGoalStep(index)}
-                          disabled={!authToken}
-                          className="text-xs text-rose-600 border border-rose-200 px-2 py-1 rounded hover:bg-rose-50"
-                        >
-                          {t.goal_step_remove}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-2">{t.goal_steps_hint}</p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs text-slate-500">{t.goal_image}</label>
-                  <input type="file" accept="image/*" onChange={handleGoalImageUpload} disabled={!authToken} />
-                  {goalForm.imageUrl && (
-                    <img src={goalForm.imageUrl} alt="goal" className="h-28 w-full rounded-xl object-cover" />
-                  )}
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    type="submit"
-                    disabled={!authToken}
-                    className="flex-1 bg-amber-600 text-white px-4 py-3 rounded-xl hover:bg-amber-500 transition disabled:opacity-60"
-                  >
-                    {goalForm.id ? t.goal_update : t.goal_create}
-                  </button>
-                  {goalForm.id && (
-                    <button
-                      type="button"
-                      onClick={resetGoalForm}
-                      className="flex-1 border border-slate-200 px-4 py-3 rounded-xl hover:bg-slate-50 transition"
-                    >
-                      {t.goal_reset}
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
-          )}
-
-          <div className="mt-6 flex flex-col gap-3">
-            {!authToken ? (
-              <p className="text-sm text-slate-500">{t.auth_required}</p>
-            ) : myGoals.length === 0 ? (
-              <p className="text-sm text-slate-500">{t.goal_empty}</p>
-            ) : (
-              myGoals.map((goal) => (
-                <div key={goal.id} className="border border-slate-100 rounded-xl p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                      {deleteMode && (
-                        <div className="mb-2">
-                          <label className="inline-flex items-center gap-2 text-xs text-slate-500">
-                            <input
-                              type="checkbox"
-                              checked={selectedGoalIds.includes(goal.id)}
-                              onChange={(event) => {
-                                const checked = event.target.checked;
-                                setSelectedGoalIds((prev) =>
-                                  checked ? [...prev, goal.id] : prev.filter((id) => id !== goal.id)
-                                );
-                              }}
-                            />
-                            {t.goal_delete}
-                          </label>
-                        </div>
-                      )}
-                      {goal.imageUrl && (
-                        <img src={goal.imageUrl} alt={goal.title} className="h-28 w-full rounded-xl object-cover mb-3" />
-                      )}
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold">{goal.title}</p>
-                          <p className="text-xs text-slate-500">{goal.category}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
-                            {goal.progress}%
-                          </span>
-                          <span className={`text-xs px-2 py-1 rounded-full ${getMotivationBadge(goal).className}`}>
-                            {getMotivationBadge(goal).label}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                        <span className="px-2 py-0.5 rounded-full border border-slate-200">
-                          {t.goal_status_label}: {getGoalStatus(goal) === 'done' ? t.goal_status_done : getGoalStatus(goal) === 'not_started' ? t.goal_status_not_started : t.goal_status_in_progress}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full border border-slate-200">
-                          {t.goal_priority_label}: {goal.priority === 'high' ? t.goal_priority_high : goal.priority === 'low' ? t.goal_priority_low : t.goal_priority_normal}
-                        </span>
-                        {(goal.startDate || goal.endDate) && (
-                          <span className="px-2 py-0.5 rounded-full border border-slate-200">
-                            {t.goal_time_window}: {goal.startDate ? String(goal.startDate).slice(0, 10) : '--'} → {goal.endDate ? String(goal.endDate).slice(0, 10) : '--'}
-                          </span>
-                        )}
-                      </div>
-                      {(goal.startDate && goal.endDate) && (
-                        <div className="mt-3">
-                          {(() => {
-                            const start = new Date(goal.startDate);
-                            const end = new Date(goal.endDate);
-                            const total = end.getTime() - start.getTime();
-                            const elapsed = Date.now() - start.getTime();
-                            const ratio = total > 0 ? Math.min(Math.max(elapsed / total, 0), 1) : 0;
-                            const percent = Math.round(ratio * 100);
-                            const steps = Array.isArray(goal.steps) ? goal.steps : [];
-                            return (
-                              <div>
-                                <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-                                  <span>{t.goal_time_progress}</span>
-                                  <span>{percent}%</span>
-                                </div>
-                                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                                  <div className="h-full bg-amber-500" style={{ width: `${percent}%` }} />
-                                </div>
-                                {steps.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    {steps.map((step, idx) => (
-                                      <span
-                                        key={`goal-step-${goal.id}-${idx}`}
-                                        className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                                          step.done ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500'
-                                        }`}
-                                      >
-                                        {step.title}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-                      <p className="text-xs text-slate-500 mt-2">{goal.description}</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {(goal.tags || []).map((tag) => (
-                          <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      {!deleteMode && (
-                        <div className="mt-3">
-                          <button
-                            type="button"
-                            onClick={() => handleGoalEdit(goal)}
-                            className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
-                          >
-                            {t.goal_update}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
         </section>
       </main>
 
