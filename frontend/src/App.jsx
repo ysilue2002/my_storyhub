@@ -858,6 +858,30 @@ export default function App() {
     setMyGoals((prev) => prev.filter((goal) => goal.id !== goalId));
   };
 
+  const handleGoalEdit = (goal) => {
+    setGoalForm({
+      id: goal.id,
+      title: goal.title || '',
+      description: goal.description || '',
+      category: goal.category || '',
+      progress: Number(goal.progress) || 0,
+      tags: Array.isArray(goal.tags) ? goal.tags.join(', ') : '',
+      imageUrl: goal.imageUrl || '',
+      startDate: goal.startDate ? String(goal.startDate).slice(0, 10) : '',
+      endDate: goal.endDate ? String(goal.endDate).slice(0, 10) : '',
+      priority: goal.priority || 'normal',
+      steps:
+        Array.isArray(goal.steps) && goal.steps.length > 0
+          ? goal.steps.slice(0, 5).map((step) => ({
+              title: String(step?.title || ''),
+              done: Boolean(step?.done),
+            }))
+          : [{ title: '', done: false }],
+    });
+    setShowGoalForm(true);
+    setGoalStatus({ error: '', success: '' });
+  };
+
   const handleDeleteButton = async () => {
     if (!deleteMode) {
       setDeleteMode(true);
@@ -1299,6 +1323,17 @@ export default function App() {
                           </span>
                         ))}
                       </div>
+                      {!deleteMode && (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => handleGoalEdit(goal)}
+                            className="text-xs text-slate-700 border border-slate-200 px-3 py-1 rounded-lg hover:bg-slate-50"
+                          >
+                            {t.goal_update}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
