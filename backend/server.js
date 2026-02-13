@@ -19,11 +19,12 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
 const USE_SSL = process.env.DATABASE_SSL === 'true';
+const normalizeOrigin = (value) => String(value || '').trim().replace(/\/+$/, '');
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '*';
 const ALLOWED_ORIGINS =
   FRONTEND_ORIGIN === '*'
     ? '*'
-    : FRONTEND_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean);
+    : FRONTEND_ORIGIN.split(',').map((origin) => normalizeOrigin(origin)).filter(Boolean);
 const SERVER_BASE_URL = process.env.SERVER_BASE_URL || `http://localhost:${PORT}`;
 
 const pool = new Pool({
@@ -35,7 +36,7 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || ALLOWED_ORIGINS === '*') return callback(null, true);
-      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(normalizeOrigin(origin))) return callback(null, true);
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -55,7 +56,7 @@ const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
       if (!origin || ALLOWED_ORIGINS === '*') return callback(null, true);
-      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(normalizeOrigin(origin))) return callback(null, true);
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
