@@ -433,7 +433,21 @@ export default function App() {
     });
   }, [goals, normalizedQuery]);
 
-  const goalsToShow = isSimple ? filteredGoals.slice(0, 4) : filteredGoals;
+  const priorityRank = { high: 0, normal: 1, low: 2 };
+  const sortedGoalsByPriority = useMemo(
+    () =>
+      [...filteredGoals].sort((a, b) => {
+        const pa = priorityRank[a.priority] ?? 3;
+        const pb = priorityRank[b.priority] ?? 3;
+        if (pa !== pb) return pa - pb;
+        const ga = Number(a.progress) || 0;
+        const gb = Number(b.progress) || 0;
+        return gb - ga;
+      }),
+    [filteredGoals]
+  );
+
+  const goalsToShow = isSimple ? sortedGoalsByPriority.slice(0, 4) : sortedGoalsByPriority;
 
   const usersById = useMemo(() => {
     const map = new Map();
@@ -1034,9 +1048,14 @@ export default function App() {
         )}
 
         <section id="feed" className="space-y-4 mb-8">
-          <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-            {t.goals_title}
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
+              {t.goals_title}
+            </h2>
+            <span className="text-xs text-slate-500 px-2 py-1 rounded-full border border-slate-200 bg-white/70">
+              {`Priorite: ${t.goal_priority_high} -> ${t.goal_priority_normal} -> ${t.goal_priority_low}`}
+            </span>
+          </div>
           {goalsToShow.length === 0 ? (
             <div className="bg-white/90 border border-slate-100 rounded-2xl p-5 text-sm text-slate-500">
               {t.goal_empty}
