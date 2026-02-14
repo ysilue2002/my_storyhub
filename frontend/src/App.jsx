@@ -84,6 +84,14 @@ export default function App() {
   const isSimple = viewMode === 'simple';
   const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
   const isGoalsPage = currentHash === '#goals';
+  const [encouragements, setEncouragements] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('goalEncouragements') || '{}');
+      return typeof saved === 'object' && saved ? saved : {};
+    } catch (error) {
+      return {};
+    }
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
@@ -93,6 +101,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('viewMode', viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem('goalEncouragements', JSON.stringify(encouragements));
+  }, [encouragements]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -947,6 +959,17 @@ export default function App() {
     setDeleteMode(false);
   };
 
+  const addEncouragement = (goalId, type) => {
+    setEncouragements((prev) => {
+      const current = prev[goalId] || { clap: 0, strong: 0, fire: 0 };
+      const next = {
+        ...current,
+        [type]: Number(current[type] || 0) + 1,
+      };
+      return { ...prev, [goalId]: next };
+    });
+  };
+
 
   const backgroundImageUrl = 'https://wallpapers.com/images/hd/inspirational-2560-x-1440-background-bgnodhf38mjuz41d.jpg';
   const headerSearch = (
@@ -1117,6 +1140,22 @@ export default function App() {
                       <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                         <div className="h-full bg-amber-500" style={{ width: `${Math.max(0, Math.min(Number(goal.progress) || 0, 100))}%` }} />
                       </div>
+                      {Array.isArray(goal.steps) && goal.steps.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {goal.steps.slice(0, 5).map((step, idx) => (
+                            <span
+                              key={`feed-step-${goal.id}-${idx}`}
+                              className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                step?.done
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : 'border-slate-200 text-slate-500'
+                              }`}
+                            >
+                              {step?.title || `Etape ${idx + 1}`}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {(goal.tags || []).length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -1127,6 +1166,32 @@ export default function App() {
                         ))}
                       </div>
                     )}
+                    <div className="mt-3 flex items-center gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => addEncouragement(goal.id, 'clap')}
+                        className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
+                        title="Encourager"
+                      >
+                        👏 {Number(encouragements[goal.id]?.clap || 0)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addEncouragement(goal.id, 'strong')}
+                        className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
+                        title="Encourager"
+                      >
+                        💪 {Number(encouragements[goal.id]?.strong || 0)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addEncouragement(goal.id, 'fire')}
+                        className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
+                        title="Encourager"
+                      >
+                        🔥 {Number(encouragements[goal.id]?.fire || 0)}
+                      </button>
+                    </div>
                   </article>
                 );
               })}
