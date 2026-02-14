@@ -140,6 +140,18 @@ const authRequired = (req, res, next) => {
   }
 };
 
+const optionalAuth = (req, res, next) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return next();
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    // ignore invalid optional token
+  }
+  return next();
+};
+
 const ensureNotSuspended = async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -460,6 +472,18 @@ const initDb = async () => {
     );
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS navigation_events (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      page TEXT NOT NULL,
+      path TEXT,
+      referrer TEXT,
+      user_agent TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
   const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM users');
   if (rows[0].count > 0) return;
 
@@ -644,6 +668,28 @@ const initDb = async () => {
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.post('/api/navigation-event', optionalAuth, async (req, res) => {
+  const { page, path: pagePath, referrer } = req.body || {};
+  const cleanPage = String(page || '').trim();
+  if (!cleanPage) {
+    return res.status(400).json({ error: 'page requis.' });
+  }
+  await pool.query(
+    `
+      INSERT INTO navigation_events (user_id, page, path, referrer, user_agent)
+      VALUES ($1, $2, $3, $4, $5)
+    `,
+    [
+      req.user?.id || null,
+      cleanPage.slice(0, 80),
+      String(pagePath || '').slice(0, 200),
+      String(referrer || '').slice(0, 300),
+      String(req.headers['user-agent'] || '').slice(0, 300),
+    ]
+  );
+  res.status(201).json({ ok: true });
 });
 
 app.post('/api/auth/register', async (req, res) => {
@@ -2298,6 +2344,47 @@ app.get('/api/admin/reports', authRequired, adminRequired, async (req, res) => {
     `
   );
   res.json(result.rows);
+});
+
+app.get('/api/admin/stats', authRequired, adminRequired, async (req, res) => {
+  const [usersTotal, goalsTotal, messagesTotal, reportsOpen, adsActive, eventsTotal, topPages, dailyViews] =
+    await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS count FROM users'),
+      pool.query('SELECT COUNT(*)::int AS count FROM goals'),
+      pool.query('SELECT COUNT(*)::int AS count FROM messages'),
+      pool.query("SELECT COUNT(*)::int AS count FROM reports WHERE status = 'open'"),
+      pool.query('SELECT COUNT(*)::int AS count FROM ads WHERE is_active = TRUE'),
+      pool.query('SELECT COUNT(*)::int AS count FROM navigation_events'),
+      pool.query(
+        `
+          SELECT page, COUNT(*)::int AS views
+          FROM navigation_events
+          GROUP BY page
+          ORDER BY views DESC
+          LIMIT 8
+        `
+      ),
+      pool.query(
+        `
+          SELECT TO_CHAR(created_at::date, 'YYYY-MM-DD') AS day, COUNT(*)::int AS views
+          FROM navigation_events
+          WHERE created_at >= NOW() - INTERVAL '7 days'
+          GROUP BY created_at::date
+          ORDER BY created_at::date ASC
+        `
+      ),
+    ]);
+
+  res.json({
+    usersTotal: usersTotal.rows[0]?.count || 0,
+    goalsTotal: goalsTotal.rows[0]?.count || 0,
+    messagesTotal: messagesTotal.rows[0]?.count || 0,
+    reportsOpen: reportsOpen.rows[0]?.count || 0,
+    adsActive: adsActive.rows[0]?.count || 0,
+    navigationEventsTotal: eventsTotal.rows[0]?.count || 0,
+    topPages: topPages.rows,
+    dailyViews: dailyViews.rows,
+  });
 });
 
 app.put('/api/admin/reports/:id', authRequired, adminRequired, async (req, res) => {

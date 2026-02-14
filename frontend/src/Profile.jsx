@@ -78,6 +78,20 @@ export default function Profile() {
     return fetch(url, { ...options, headers });
   };
 
+  useEffect(() => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    fetch(`${API_BASE}/api/navigation-event`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        page: 'profile',
+        path: window.location.pathname + window.location.hash,
+        referrer: document.referrer || '',
+      }),
+    }).catch(() => {});
+  }, [authToken]);
+
   const loadAlerts = async () => {
     if (!authToken) {
       setAlerts({ pendingRequests: 0, unreadMessages: 0 });

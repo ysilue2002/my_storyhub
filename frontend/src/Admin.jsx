@@ -30,6 +30,16 @@ export default function Admin() {
     notifications: [],
     reports: [],
   });
+  const [adminStats, setAdminStats] = useState({
+    usersTotal: 0,
+    goalsTotal: 0,
+    messagesTotal: 0,
+    reportsOpen: 0,
+    adsActive: 0,
+    navigationEventsTotal: 0,
+    topPages: [],
+    dailyViews: [],
+  });
   const [adminForm, setAdminForm] = useState({
     title: '',
     body: '',
@@ -73,6 +83,20 @@ export default function Admin() {
     return fetch(url, { ...options, headers });
   };
 
+  useEffect(() => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    fetch(`${API_BASE}/api/navigation-event`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        page: 'admin',
+        path: window.location.pathname + window.location.hash,
+        referrer: document.referrer || '',
+      }),
+    }).catch(() => {});
+  }, [authToken]);
+
   const handleAdminGate = (event) => {
     event.preventDefault();
     setAdminCodeError('');
@@ -104,7 +128,7 @@ export default function Admin() {
   const loadAdminData = async () => {
     if (!authToken || currentUser?.role !== 'admin') return;
     try {
-      const [usersRes, goalsRes, commentsRes, adsRes, messagesRes, notifRes, reportsRes] = await Promise.all([
+      const [usersRes, goalsRes, commentsRes, adsRes, messagesRes, notifRes, reportsRes, statsRes] = await Promise.all([
         authFetch(`${API_BASE}/api/admin/users`),
         authFetch(`${API_BASE}/api/admin/goals`),
         authFetch(`${API_BASE}/api/admin/comments`),
@@ -112,8 +136,9 @@ export default function Admin() {
         authFetch(`${API_BASE}/api/admin/messages`),
         authFetch(`${API_BASE}/api/admin/notifications`),
         authFetch(`${API_BASE}/api/admin/reports`),
+        authFetch(`${API_BASE}/api/admin/stats`),
       ]);
-      const [users, goals, comments, ads, messages, notifications, reports] = await Promise.all([
+      const [users, goals, comments, ads, messages, notifications, reports, stats] = await Promise.all([
         usersRes.json(),
         goalsRes.json(),
         commentsRes.json(),
@@ -121,6 +146,7 @@ export default function Admin() {
         messagesRes.json(),
         notifRes.json(),
         reportsRes.json(),
+        statsRes.json(),
       ]);
       setAdminData({
         users: Array.isArray(users) ? users : [],
@@ -131,6 +157,16 @@ export default function Admin() {
         notifications: Array.isArray(notifications) ? notifications : [],
         reports: Array.isArray(reports) ? reports : [],
       });
+      setAdminStats({
+        usersTotal: Number(stats.usersTotal) || 0,
+        goalsTotal: Number(stats.goalsTotal) || 0,
+        messagesTotal: Number(stats.messagesTotal) || 0,
+        reportsOpen: Number(stats.reportsOpen) || 0,
+        adsActive: Number(stats.adsActive) || 0,
+        navigationEventsTotal: Number(stats.navigationEventsTotal) || 0,
+        topPages: Array.isArray(stats.topPages) ? stats.topPages : [],
+        dailyViews: Array.isArray(stats.dailyViews) ? stats.dailyViews : [],
+      });
     } catch (error) {
       setAdminData({
         users: [],
@@ -140,6 +176,16 @@ export default function Admin() {
         messages: [],
         notifications: [],
         reports: [],
+      });
+      setAdminStats({
+        usersTotal: 0,
+        goalsTotal: 0,
+        messagesTotal: 0,
+        reportsOpen: 0,
+        adsActive: 0,
+        navigationEventsTotal: 0,
+        topPages: [],
+        dailyViews: [],
       });
     }
   };
@@ -423,6 +469,12 @@ export default function Admin() {
                     </button>
                   </div>
                   <nav className={`flex flex-col gap-2 text-sm text-slate-600 ${adminMenuOpen ? '' : 'hidden lg:flex'}`}>
+                    <a href="#admin-stats" className="hover:text-slate-900 flex items-center justify-between gap-2">
+                      <span>📊 {t.admin_stats}</span>
+                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                        {adminStats.navigationEventsTotal}
+                      </span>
+                    </a>
                     <a href="#admin-users" className="hover:text-slate-900 flex items-center justify-between gap-2">
                       <span>👤 {t.admin_users}</span>
                       <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
@@ -474,6 +526,59 @@ export default function Admin() {
                   </nav>
                 </aside>
                 <div className={`grid gap-6 ${isSimple ? '' : 'lg:grid-cols-2'}`}>
+                <div id="admin-stats" className="bg-white/90 border border-slate-100 rounded-2xl p-5 scroll-mt-24 lg:col-span-2">
+                  <h3 className="text-lg font-semibold mb-3">{t.admin_stats}</h3>
+                  <div className="grid sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                    <div className="border border-slate-100 rounded-xl p-3">
+                      <p className="text-[11px] text-slate-500">{t.admin_users}</p>
+                      <p className="text-lg font-semibold">{adminStats.usersTotal}</p>
+                    </div>
+                    <div className="border border-slate-100 rounded-xl p-3">
+                      <p className="text-[11px] text-slate-500">{t.admin_goals}</p>
+                      <p className="text-lg font-semibold">{adminStats.goalsTotal}</p>
+                    </div>
+                    <div className="border border-slate-100 rounded-xl p-3">
+                      <p className="text-[11px] text-slate-500">{t.admin_messages}</p>
+                      <p className="text-lg font-semibold">{adminStats.messagesTotal}</p>
+                    </div>
+                    <div className="border border-slate-100 rounded-xl p-3">
+                      <p className="text-[11px] text-slate-500">{t.admin_reports}</p>
+                      <p className="text-lg font-semibold">{adminStats.reportsOpen}</p>
+                    </div>
+                    <div className="border border-slate-100 rounded-xl p-3">
+                      <p className="text-[11px] text-slate-500">{t.admin_ads}</p>
+                      <p className="text-lg font-semibold">{adminStats.adsActive}</p>
+                    </div>
+                    <div className="border border-slate-100 rounded-xl p-3">
+                      <p className="text-[11px] text-slate-500">{t.admin_nav_events}</p>
+                      <p className="text-lg font-semibold">{adminStats.navigationEventsTotal}</p>
+                    </div>
+                  </div>
+                  <div className="grid lg:grid-cols-2 gap-4">
+                    <div className="border border-slate-100 rounded-xl p-3">
+                      <p className="text-sm font-semibold mb-2">{t.admin_top_pages}</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {adminStats.topPages.map((row) => (
+                          <div key={row.page} className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600">{row.page}</span>
+                            <span className="text-slate-900 font-semibold">{row.views}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="border border-slate-100 rounded-xl p-3">
+                      <p className="text-sm font-semibold mb-2">{t.admin_daily_views}</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {adminStats.dailyViews.map((row) => (
+                          <div key={row.day} className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600">{row.day}</span>
+                            <span className="text-slate-900 font-semibold">{row.views}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div id="admin-users" className="bg-white/90 border border-slate-100 rounded-2xl p-5 scroll-mt-24">
                   <h3 className="text-lg font-semibold mb-3">{t.admin_users}</h3>
                   <div className="space-y-2 max-h-80 overflow-y-auto">

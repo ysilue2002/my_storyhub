@@ -46,6 +46,20 @@ export default function Login() {
   };
 
   useEffect(() => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    fetch(`${API_BASE}/api/navigation-event`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        page: 'login',
+        path: window.location.pathname + window.location.hash,
+        referrer: document.referrer || '',
+      }),
+    }).catch(() => {});
+  }, [authToken]);
+
+  useEffect(() => {
     const loadMe = async () => {
       if (!authToken) {
         setCurrentUser(null);

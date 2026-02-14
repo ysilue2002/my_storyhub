@@ -41,6 +41,20 @@ export default function Hubmates() {
     return fetch(url, { ...options, headers });
   };
 
+  useEffect(() => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    fetch(`${API_BASE}/api/navigation-event`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        page: 'hubmates',
+        path: window.location.pathname + window.location.hash,
+        referrer: document.referrer || '',
+      }),
+    }).catch(() => {});
+  }, [authToken]);
+
   const loadMe = async () => {
     if (!authToken) {
       setCurrentUser(null);
