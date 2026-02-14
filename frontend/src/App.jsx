@@ -1136,10 +1136,7 @@ export default function App() {
 
         {isGoalsPage && (
           <section id="goals" className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-              {t.nav_goals}
-            </h2>
+          <div className="flex items-center justify-start gap-3">
             <div className="flex items-center gap-2">
               <button
                 type="button"
