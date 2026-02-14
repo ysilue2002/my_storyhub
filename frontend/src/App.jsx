@@ -1078,20 +1078,8 @@ export default function App() {
           </div>
         )}
 
-        {!isGoalsPage && (
+        {!isGoalsPage && authToken && goalsToShow.length > 0 && (
           <section id="feed" className="space-y-4 mb-8">
-          <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
-            Objectifs Hubmates
-          </h2>
-          {!authToken ? (
-            <div className="bg-white/90 border border-slate-100 rounded-2xl p-5 text-sm text-slate-500">
-              {t.auth_required}
-            </div>
-          ) : goalsToShow.length === 0 ? (
-            <div className="bg-white/90 border border-slate-100 rounded-2xl p-5 text-sm text-slate-500">
-              {t.goal_empty}
-            </div>
-          ) : (
             <div className="space-y-4">
               {goalsToShow.map((goal) => {
                 const owner = usersById.get(goal.ownerId);
@@ -1143,11 +1131,11 @@ export default function App() {
                 );
               })}
             </div>
-          )}
           </section>
         )}
 
-        <section id="goals" className="space-y-4">
+        {isGoalsPage && (
+          <section id="goals" className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className={`text-xl font-semibold ${lang === 'ar' ? 'font-arabic text-right' : 'font-heading'}`}>
               {t.nav_goals}
@@ -1384,7 +1372,8 @@ export default function App() {
               ))
             )}
           </div>
-        </section>
+          </section>
+        )}
       </main>
 
       <Footer t={t} lang={lang} />
