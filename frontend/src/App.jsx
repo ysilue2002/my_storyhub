@@ -975,42 +975,26 @@ export default function App() {
   const renderStepsProgressChart = (goal) => {
     const steps = Array.isArray(goal.steps) ? goal.steps.slice(0, 5) : [];
     if (steps.length === 0) return null;
-
-    const series = [];
-    let doneCount = 0;
-    series.push({ x: 0, y: 0 });
-    steps.forEach((step, index) => {
-      if (step?.done) doneCount += 1;
-      series.push({
-        x: ((index + 1) / steps.length) * 100,
-        y: (doneCount / steps.length) * 100,
-      });
-    });
-
-    const points = series
-      .map((point) => `${point.x},${100 - point.y}`)
-      .join(' ');
+    const doneCount = steps.filter((step) => Boolean(step?.done)).length;
+    const filledPercent = Math.round((doneCount / steps.length) * 100);
 
     return (
       <div className="mt-2">
         <div className="text-[11px] text-slate-500 mb-1">{t.goal_time_progress}</div>
-        <svg viewBox="0 0 100 100" className="w-full h-20 rounded-lg bg-slate-50 border border-slate-100">
-          <polyline
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth="2.5"
-            points={points}
-          />
-          {series.map((point, idx) => (
-            <circle
-              key={`chart-dot-${goal.id}-${idx}`}
-              cx={point.x}
-              cy={100 - point.y}
-              r="1.6"
-              fill="#b45309"
-            />
+        <div className="h-2 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+          <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${filledPercent}%` }} />
+        </div>
+        <div className="mt-2 grid gap-1" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+          {steps.map((step, idx) => (
+            <div key={`step-grad-${goal.id}-${idx}`} className="text-center">
+              <div
+                className={`h-2 rounded-full ${step?.done ? 'bg-amber-500' : 'bg-slate-200'}`}
+                title={step?.title || `Etape ${idx + 1}`}
+              />
+              <div className="mt-1 text-[10px] text-slate-500 truncate">{step?.title || `Etape ${idx + 1}`}</div>
+            </div>
           ))}
-        </svg>
+        </div>
       </div>
     );
   };
