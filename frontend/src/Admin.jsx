@@ -3,14 +3,13 @@ import AuthCard from './components/AuthCard';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import Footer from './components/Footer';
 import SearchBar from './components/SearchBar';
+import { API_BASE } from './config';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
 import ar from './lang/ar.json';
 
 const messages = { fr, en, ar };
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:3001';
-
 export default function Admin() {
   const [lang, setLang] = useState('fr');
   const [authToken, setAuthToken] = useState(localStorage.getItem('authToken') || '');

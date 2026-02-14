@@ -5,15 +5,13 @@ import Footer from './components/Footer';
 import Header from './components/Header';
 import AuthCard from './components/AuthCard';
 import SearchBar from './components/SearchBar';
+import { API_BASE, WS_BASE } from './config';
 
 import fr from './lang/fr.json';
 import en from './lang/en.json';
 import ar from './lang/ar.json';
 
 const messages = { fr, en, ar };
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:3001';
-const WS_BASE = process.env.REACT_APP_WS_BASE || API_BASE;
-
 export default function Hubmates() {
   const [lang, setLang] = useState('fr');
   const [authToken, setAuthToken] = useState(localStorage.getItem('authToken') || '');
