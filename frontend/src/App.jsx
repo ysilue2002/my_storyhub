@@ -972,6 +972,49 @@ export default function App() {
     }
   };
 
+  const renderStepsProgressChart = (goal) => {
+    const steps = Array.isArray(goal.steps) ? goal.steps.slice(0, 5) : [];
+    if (steps.length === 0) return null;
+
+    const series = [];
+    let doneCount = 0;
+    series.push({ x: 0, y: 0 });
+    steps.forEach((step, index) => {
+      if (step?.done) doneCount += 1;
+      series.push({
+        x: ((index + 1) / steps.length) * 100,
+        y: (doneCount / steps.length) * 100,
+      });
+    });
+
+    const points = series
+      .map((point) => `${point.x},${100 - point.y}`)
+      .join(' ');
+
+    return (
+      <div className="mt-2">
+        <div className="text-[11px] text-slate-500 mb-1">{t.goal_time_progress}</div>
+        <svg viewBox="0 0 100 100" className="w-full h-20 rounded-lg bg-slate-50 border border-slate-100">
+          <polyline
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth="2.5"
+            points={points}
+          />
+          {series.map((point, idx) => (
+            <circle
+              key={`chart-dot-${goal.id}-${idx}`}
+              cx={point.x}
+              cy={100 - point.y}
+              r="1.6"
+              fill="#b45309"
+            />
+          ))}
+        </svg>
+      </div>
+    );
+  };
+
 
   const backgroundImageUrl = 'https://wallpapers.com/images/hd/inspirational-2560-x-1440-background-bgnodhf38mjuz41d.jpg';
   const headerSearch = (
@@ -1158,6 +1201,7 @@ export default function App() {
                           ))}
                         </div>
                       )}
+                      {renderStepsProgressChart(goal)}
                     </div>
                     {(goal.tags || []).length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -1406,6 +1450,7 @@ export default function App() {
                   {goal.description && (
                     <p className="text-sm text-slate-600 mt-2">{goal.description}</p>
                   )}
+                  {renderStepsProgressChart(goal)}
                   <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
                     <span className="px-2 py-1 rounded-full border border-slate-200">👏 {Number(goal.encouragements?.clap || 0)}</span>
                     <span className="px-2 py-1 rounded-full border border-slate-200">💪 {Number(goal.encouragements?.strong || 0)}</span>
