@@ -375,7 +375,6 @@ export default function Admin() {
 
   return (
     <div className={`min-h-screen bg-gradient-to-b from-[#fff6e8] via-[#f4f7f2] to-[#e9f2f7] text-slate-900 ${isSimple ? 'view-simple' : ''}`}>
-      <LanguageSwitcher lang={lang} setLang={setLang} />
       <div className="max-w-6xl mx-auto px-6 pt-6">
         <div className="flex justify-end">
           <div className="w-72">
@@ -396,6 +395,7 @@ export default function Admin() {
             {t.admin_title}
           </h1>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher lang={lang} setLang={setLang} />
             <div className="inline-flex rounded-full bg-slate-100 p-1">
               <button
                 onClick={() => setViewMode('simple')}
