@@ -201,6 +201,7 @@ export default function App() {
   const sponsorOfDay =
     ads.find((ad) => isSponsorActive(ad)) ||
     (ads.length > 0 ? ads[new Date().getDate() % ads.length] : null);
+  const primaryAd = featuredAds[0] || null;
 
   useEffect(() => {
     localStorage.setItem('hubmateFilters', JSON.stringify(hubmateFilters));
@@ -1132,97 +1133,146 @@ export default function App() {
 
         {!isGoalsPage && authToken && goalsToShow.length > 0 && (
           <section id="feed" className="space-y-4 mb-8">
+            {sponsorOfDay && (
+              <article className="bg-white/90 border border-amber-200 rounded-2xl p-4 shadow-[var(--shadow-soft)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-amber-700">Sponsor du jour</p>
+                    <p className="text-sm font-semibold text-slate-900">{sponsorOfDay.title}</p>
+                    {sponsorOfDay.body && (
+                      <p className="text-xs text-slate-600 mt-1">{sponsorOfDay.body}</p>
+                    )}
+                  </div>
+                  {sponsorOfDay.linkUrl && (
+                    <a
+                      href={sponsorOfDay.linkUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50"
+                    >
+                      Voir
+                    </a>
+                  )}
+                </div>
+              </article>
+            )}
             <div className="space-y-4">
-              {goalsToShow.map((goal) => {
+              {goalsToShow.map((goal, index) => {
                 const owner = usersById.get(goal.ownerId);
                 const ownerName = owner?.name || `User #${goal.ownerId}`;
                 const ownerAvatar = owner?.avatarUrl || null;
                 return (
-                  <article key={`feed-${goal.id}`} className="bg-white/90 border border-slate-100 rounded-2xl p-5 shadow-[var(--shadow-soft)]">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="h-11 w-11 rounded-full bg-slate-100 overflow-hidden">
-                        {ownerAvatar ? (
-                          <img src={ownerAvatar} alt={ownerName} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-slate-400 font-semibold">
-                            {ownerName.slice(0, 1)}
+                  <React.Fragment key={`feed-wrap-${goal.id}`}>
+                    <article className="bg-white/90 border border-slate-100 rounded-2xl p-5 shadow-[var(--shadow-soft)]">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-11 w-11 rounded-full bg-slate-100 overflow-hidden">
+                          {ownerAvatar ? (
+                            <img src={ownerAvatar} alt={ownerName} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-slate-400 font-semibold">
+                              {ownerName.slice(0, 1)}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{ownerName}</p>
+                          <p className="text-xs text-slate-500">{goal.category || t.goals_title}</p>
+                        </div>
+                      </div>
+                      <h3 className="text-base font-semibold text-slate-900">{goal.title}</h3>
+                      {goal.description && (
+                        <p className="text-sm text-slate-600 mt-2">{goal.description}</p>
+                      )}
+                      {goal.imageUrl && (
+                        <img src={goal.imageUrl} alt={goal.title} className="mt-3 h-56 w-full rounded-xl object-cover" />
+                      )}
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                          <span>{t.goal_progress}</span>
+                          <span>{Number(goal.progress) || 0}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                          <div className="h-full bg-amber-500" style={{ width: `${Math.max(0, Math.min(Number(goal.progress) || 0, 100))}%` }} />
+                        </div>
+                        {Array.isArray(goal.steps) && goal.steps.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {goal.steps.slice(0, 5).map((step, idx) => (
+                              <span
+                                key={`feed-step-${goal.id}-${idx}`}
+                                className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                  step?.done
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : 'border-slate-200 text-slate-500'
+                                }`}
+                              >
+                                {step?.title || `Etape ${idx + 1}`}
+                              </span>
+                            ))}
                           </div>
                         )}
+                        {renderStepsProgressChart(goal)}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{ownerName}</p>
-                        <p className="text-xs text-slate-500">{goal.category || t.goals_title}</p>
-                      </div>
-                    </div>
-                    <h3 className="text-base font-semibold text-slate-900">{goal.title}</h3>
-                    {goal.description && (
-                      <p className="text-sm text-slate-600 mt-2">{goal.description}</p>
-                    )}
-                    {goal.imageUrl && (
-                      <img src={goal.imageUrl} alt={goal.title} className="mt-3 h-56 w-full rounded-xl object-cover" />
-                    )}
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                        <span>{t.goal_progress}</span>
-                        <span>{Number(goal.progress) || 0}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                        <div className="h-full bg-amber-500" style={{ width: `${Math.max(0, Math.min(Number(goal.progress) || 0, 100))}%` }} />
-                      </div>
-                      {Array.isArray(goal.steps) && goal.steps.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {goal.steps.slice(0, 5).map((step, idx) => (
-                            <span
-                              key={`feed-step-${goal.id}-${idx}`}
-                              className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                                step?.done
-                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                  : 'border-slate-200 text-slate-500'
-                              }`}
-                            >
-                              {step?.title || `Etape ${idx + 1}`}
+                      {(goal.tags || []).length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(goal.tags || []).map((tag) => (
+                            <span key={`feed-tag-${goal.id}-${tag}`} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                              {tag}
                             </span>
                           ))}
                         </div>
                       )}
-                      {renderStepsProgressChart(goal)}
-                    </div>
-                    {(goal.tags || []).length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {(goal.tags || []).map((tag) => (
-                          <span key={`feed-tag-${goal.id}-${tag}`} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="mt-3 flex items-center gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => addEncouragement(goal.id, 'clap')}
+                          className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
+                          title="Encourager"
+                        >
+                          👏 {Number(goal.encouragements?.clap || 0)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addEncouragement(goal.id, 'strong')}
+                          className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
+                          title="Encourager"
+                        >
+                          💪 {Number(goal.encouragements?.strong || 0)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addEncouragement(goal.id, 'fire')}
+                          className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
+                          title="Encourager"
+                        >
+                          🔥 {Number(goal.encouragements?.fire || 0)}
+                        </button>
                       </div>
+                    </article>
+                    {primaryAd && index % 3 === 1 && (
+                      <article className="bg-white/90 border border-slate-100 rounded-2xl p-4">
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400">Publicite</p>
+                        <p className="text-sm font-semibold text-slate-900 mt-1">{primaryAd.title}</p>
+                        {primaryAd.body && <p className="text-xs text-slate-600 mt-1">{primaryAd.body}</p>}
+                        {primaryAd.linkUrl && (
+                          <a
+                            href={primaryAd.linkUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-block mt-2 text-xs px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          >
+                            En savoir plus
+                          </a>
+                        )}
+                      </article>
                     )}
-                    <div className="mt-3 flex items-center gap-2 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => addEncouragement(goal.id, 'clap')}
-                        className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
-                        title="Encourager"
-                      >
-                        👏 {Number(goal.encouragements?.clap || 0)}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => addEncouragement(goal.id, 'strong')}
-                        className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
-                        title="Encourager"
-                      >
-                        💪 {Number(goal.encouragements?.strong || 0)}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => addEncouragement(goal.id, 'fire')}
-                        className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
-                        title="Encourager"
-                      >
-                        🔥 {Number(goal.encouragements?.fire || 0)}
-                      </button>
-                    </div>
-                  </article>
+                    {feedAd && index === goalsToShow.length - 1 && (
+                      <article className="bg-white/90 border border-slate-100 rounded-2xl p-4">
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400">Publicite</p>
+                        <p className="text-sm font-semibold text-slate-900 mt-1">{feedAd.title}</p>
+                        {feedAd.body && <p className="text-xs text-slate-600 mt-1">{feedAd.body}</p>}
+                      </article>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </div>
