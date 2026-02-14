@@ -84,14 +84,6 @@ export default function App() {
   const isSimple = viewMode === 'simple';
   const [alerts, setAlerts] = useState({ pendingRequests: 0, unreadMessages: 0 });
   const isGoalsPage = currentHash === '#goals';
-  const [encouragements, setEncouragements] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('goalEncouragements') || '{}');
-      return typeof saved === 'object' && saved ? saved : {};
-    } catch (error) {
-      return {};
-    }
-  });
 
   useEffect(() => {
     document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
@@ -101,10 +93,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('viewMode', viewMode);
   }, [viewMode]);
-
-  useEffect(() => {
-    localStorage.setItem('goalEncouragements', JSON.stringify(encouragements));
-  }, [encouragements]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -959,15 +947,29 @@ export default function App() {
     setDeleteMode(false);
   };
 
-  const addEncouragement = (goalId, type) => {
-    setEncouragements((prev) => {
-      const current = prev[goalId] || { clap: 0, strong: 0, fire: 0 };
-      const next = {
-        ...current,
-        [type]: Number(current[type] || 0) + 1,
-      };
-      return { ...prev, [goalId]: next };
-    });
+  const addEncouragement = async (goalId, type) => {
+    if (!authToken) {
+      setAuthState({ loading: false, error: t.auth_required });
+      return;
+    }
+    try {
+      const response = await authFetch(`${API_BASE}/api/goals/${goalId}/encouragements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reaction: type }),
+      });
+      const data = await response.json();
+      if (!response.ok) return;
+      const counts = data.counts || { clap: 0, strong: 0, fire: 0 };
+      setGoals((prev) =>
+        prev.map((goal) => (goal.id === goalId ? { ...goal, encouragements: counts } : goal))
+      );
+      setMyGoals((prev) =>
+        prev.map((goal) => (goal.id === goalId ? { ...goal, encouragements: counts } : goal))
+      );
+    } catch (error) {
+      // no-op
+    }
   };
 
 
@@ -1173,7 +1175,7 @@ export default function App() {
                         className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
                         title="Encourager"
                       >
-                        👏 {Number(encouragements[goal.id]?.clap || 0)}
+                        👏 {Number(goal.encouragements?.clap || 0)}
                       </button>
                       <button
                         type="button"
@@ -1181,7 +1183,7 @@ export default function App() {
                         className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
                         title="Encourager"
                       >
-                        💪 {Number(encouragements[goal.id]?.strong || 0)}
+                        💪 {Number(goal.encouragements?.strong || 0)}
                       </button>
                       <button
                         type="button"
@@ -1189,7 +1191,7 @@ export default function App() {
                         className="px-2 py-1 rounded-full border border-slate-200 hover:bg-slate-50"
                         title="Encourager"
                       >
-                        🔥 {Number(encouragements[goal.id]?.fire || 0)}
+                        🔥 {Number(goal.encouragements?.fire || 0)}
                       </button>
                     </div>
                   </article>
@@ -1404,6 +1406,11 @@ export default function App() {
                   {goal.description && (
                     <p className="text-sm text-slate-600 mt-2">{goal.description}</p>
                   )}
+                  <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                    <span className="px-2 py-1 rounded-full border border-slate-200">👏 {Number(goal.encouragements?.clap || 0)}</span>
+                    <span className="px-2 py-1 rounded-full border border-slate-200">💪 {Number(goal.encouragements?.strong || 0)}</span>
+                    <span className="px-2 py-1 rounded-full border border-slate-200">🔥 {Number(goal.encouragements?.fire || 0)}</span>
+                  </div>
                   <div className="mt-3 flex items-center gap-2">
                     {!deleteMode && (
                       <button

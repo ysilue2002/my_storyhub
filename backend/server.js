@@ -115,6 +115,16 @@ const normalizeFileUrl = (fileUrl) => {
   return `${SERVER_BASE_URL}${fileUrl.slice(uploadsIndex)}`;
 };
 
+const formatGoalRow = (row) => ({
+  ...row,
+  imageUrl: normalizeFileUrl(row.imageUrl),
+  encouragements: {
+    clap: Number(row.clapCount) || 0,
+    strong: Number(row.strongCount) || 0,
+    fire: Number(row.fireCount) || 0,
+  },
+});
+
 const authRequired = (req, res, next) => {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -401,6 +411,16 @@ const initDb = async () => {
       blocked_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMP DEFAULT NOW(),
       PRIMARY KEY (blocker_id, blocked_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS goal_encouragements (
+      id SERIAL PRIMARY KEY,
+      goal_id INTEGER REFERENCES goals(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      reaction TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
@@ -967,11 +987,14 @@ app.get('/api/goals', async (req, res) => {
   const query = (req.query.q || '').toLowerCase();
   const ownerId = req.query.ownerId ? Number(req.query.ownerId) : null;
   const result = await pool.query(
-    `SELECT id, owner_id AS "ownerId", title, description, category, progress, is_public AS "isPublic", tags,
-            image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
-            steps, priority
-     FROM goals
-     WHERE is_public = TRUE`
+    `SELECT g.id, g.owner_id AS "ownerId", g.title, g.description, g.category, g.progress,
+            g.is_public AS "isPublic", g.tags, g.image_url AS "imageUrl",
+            g.start_date AS "startDate", g.end_date AS "endDate", g.steps, g.priority,
+            (SELECT COUNT(*)::int FROM goal_encouragements ge WHERE ge.goal_id = g.id AND ge.reaction = 'clap') AS "clapCount",
+            (SELECT COUNT(*)::int FROM goal_encouragements ge WHERE ge.goal_id = g.id AND ge.reaction = 'strong') AS "strongCount",
+            (SELECT COUNT(*)::int FROM goal_encouragements ge WHERE ge.goal_id = g.id AND ge.reaction = 'fire') AS "fireCount"
+     FROM goals g
+     WHERE g.is_public = TRUE`
   );
   const data = query
     ? result.rows.filter((goal) => {
@@ -982,22 +1005,25 @@ app.get('/api/goals', async (req, res) => {
       })
     : result.rows;
   const filtered = ownerId ? data.filter((goal) => goal.ownerId === ownerId) : data;
-  res.json(filtered.map((goal) => ({ ...goal, imageUrl: normalizeFileUrl(goal.imageUrl) })));
+  res.json(filtered.map((goal) => formatGoalRow(goal)));
 });
 
 app.get('/api/my-goals', authRequired, async (req, res) => {
   const result = await pool.query(
     `
-      SELECT id, owner_id AS "ownerId", title, description, category, progress, is_public AS "isPublic", tags,
-             image_url AS "imageUrl", start_date AS "startDate", end_date AS "endDate",
-             steps, priority
-      FROM goals
-      WHERE owner_id = $1
+      SELECT g.id, g.owner_id AS "ownerId", g.title, g.description, g.category, g.progress,
+             g.is_public AS "isPublic", g.tags, g.image_url AS "imageUrl",
+             g.start_date AS "startDate", g.end_date AS "endDate", g.steps, g.priority,
+             (SELECT COUNT(*)::int FROM goal_encouragements ge WHERE ge.goal_id = g.id AND ge.reaction = 'clap') AS "clapCount",
+             (SELECT COUNT(*)::int FROM goal_encouragements ge WHERE ge.goal_id = g.id AND ge.reaction = 'strong') AS "strongCount",
+             (SELECT COUNT(*)::int FROM goal_encouragements ge WHERE ge.goal_id = g.id AND ge.reaction = 'fire') AS "fireCount"
+      FROM goals g
+      WHERE g.owner_id = $1
       ORDER BY created_at DESC
     `,
     [req.user.id]
   );
-  res.json(result.rows.map((goal) => ({ ...goal, imageUrl: normalizeFileUrl(goal.imageUrl) })));
+  res.json(result.rows.map((goal) => formatGoalRow(goal)));
 });
 
 app.post('/api/goals', authRequired, async (req, res) => {
@@ -1037,6 +1063,7 @@ app.post('/api/goals', authRequired, async (req, res) => {
   );
   const row = result.rows[0];
   row.imageUrl = normalizeFileUrl(row.imageUrl);
+  row.encouragements = { clap: 0, strong: 0, fire: 0 };
   res.status(201).json(row);
 });
 
@@ -1101,7 +1128,51 @@ app.put('/api/goals/:id', authRequired, async (req, res) => {
 
   const row = result.rows[0];
   row.imageUrl = normalizeFileUrl(row.imageUrl);
+  const countsResult = await pool.query(
+    `
+      SELECT
+        (SELECT COUNT(*)::int FROM goal_encouragements WHERE goal_id = $1 AND reaction = 'clap') AS "clap",
+        (SELECT COUNT(*)::int FROM goal_encouragements WHERE goal_id = $1 AND reaction = 'strong') AS "strong",
+        (SELECT COUNT(*)::int FROM goal_encouragements WHERE goal_id = $1 AND reaction = 'fire') AS "fire"
+    `,
+    [row.id]
+  );
+  row.encouragements = countsResult.rows[0] || { clap: 0, strong: 0, fire: 0 };
   res.json(row);
+});
+
+app.post('/api/goals/:id/encouragements', authRequired, ensureNotSuspended, async (req, res) => {
+  const { id } = req.params;
+  const { reaction } = req.body || {};
+  const allowed = ['clap', 'strong', 'fire'];
+  if (!allowed.includes(reaction)) {
+    return res.status(400).json({ error: 'reaction invalide.' });
+  }
+
+  const goal = await pool.query('SELECT id FROM goals WHERE id = $1', [id]);
+  if (goal.rows.length === 0) {
+    return res.status(404).json({ error: 'Objectif introuvable.' });
+  }
+
+  await pool.query(
+    `
+      INSERT INTO goal_encouragements (goal_id, user_id, reaction)
+      VALUES ($1, $2, $3)
+    `,
+    [id, req.user.id, reaction]
+  );
+
+  const countsResult = await pool.query(
+    `
+      SELECT
+        (SELECT COUNT(*)::int FROM goal_encouragements WHERE goal_id = $1 AND reaction = 'clap') AS "clap",
+        (SELECT COUNT(*)::int FROM goal_encouragements WHERE goal_id = $1 AND reaction = 'strong') AS "strong",
+        (SELECT COUNT(*)::int FROM goal_encouragements WHERE goal_id = $1 AND reaction = 'fire') AS "fire"
+    `,
+    [id]
+  );
+
+  res.status(201).json({ counts: countsResult.rows[0] || { clap: 0, strong: 0, fire: 0 } });
 });
 
 app.delete('/api/goals/:id', authRequired, async (req, res) => {
