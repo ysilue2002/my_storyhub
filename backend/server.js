@@ -2042,7 +2042,10 @@ app.put('/api/notifications/read-all', authRequired, async (req, res) => {
 // Admin API
 app.get('/api/admin/users', authRequired, adminRequired, async (req, res) => {
   const result = await pool.query(
-    'SELECT id, name, email, role, handle, city, bio, availability, goals, interests, created_at AS "createdAt" FROM users ORDER BY created_at DESC'
+    `SELECT id, name, email, role, handle, gender, age, country, city, bio, availability, goals, interests,
+            created_at AS "createdAt"
+     FROM users
+     ORDER BY created_at DESC`
   );
   res.json(result.rows);
 });
@@ -2056,7 +2059,7 @@ app.put('/api/admin/users/:id', authRequired, adminRequired, async (req, res) =>
       SET role = COALESCE($1, role),
           name = COALESCE($2, name)
       WHERE id = $3
-      RETURNING id, name, email, role, handle, city, bio, availability, goals, interests
+      RETURNING id, name, email, role, handle, gender, age, country, city, bio, availability, goals, interests
     `,
     [role, name, id]
   );

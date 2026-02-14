@@ -52,6 +52,7 @@ export default function Admin() {
   const [sponsorQuickWeek, setSponsorQuickWeek] = useState(false);
   const [sponsorDateError, setSponsorDateError] = useState('');
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const [adminLoadError, setAdminLoadError] = useState('');
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'simple');
   const isSimple = viewMode === 'simple';
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,6 +128,7 @@ export default function Admin() {
   const loadAdminData = async () => {
     if (!authToken || currentUser?.role !== 'admin') return;
     try {
+      setAdminLoadError('');
       const [usersRes, goalsRes, commentsRes, adsRes, messagesRes, notifRes, reportsRes, statsRes] = await Promise.all([
         authFetch(`${API_BASE}/api/admin/users`),
         authFetch(`${API_BASE}/api/admin/goals`),
@@ -167,6 +169,7 @@ export default function Admin() {
         dailyViews: Array.isArray(stats.dailyViews) ? stats.dailyViews : [],
       });
     } catch (error) {
+      setAdminLoadError('Impossible de charger les données admin.');
       setAdminData({
         users: [],
         goals: [],
@@ -527,6 +530,11 @@ export default function Admin() {
                 <div className={`grid gap-6 ${isSimple ? '' : 'lg:grid-cols-2'}`}>
                 <div id="admin-stats" className="bg-white/90 border border-slate-100 rounded-2xl p-5 scroll-mt-24 lg:col-span-2">
                   <h3 className="text-lg font-semibold mb-3">{t.admin_stats}</h3>
+                  {adminLoadError && (
+                    <div className="mb-3 text-sm text-rose-600 border border-rose-200 bg-rose-50 rounded-lg px-3 py-2">
+                      {adminLoadError}
+                    </div>
+                  )}
                   <div className="grid sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
                     <div className="border border-slate-100 rounded-xl p-3">
                       <p className="text-[11px] text-slate-500">{t.admin_users}</p>
@@ -580,10 +588,25 @@ export default function Admin() {
                 </div>
                 <div id="admin-users" className="bg-white/90 border border-slate-100 rounded-2xl p-5 scroll-mt-24">
                   <h3 className="text-lg font-semibold mb-3">{t.admin_users}</h3>
+                  <p className="text-xs text-slate-500 mb-3">
+                    Utilisateurs inscrits: <span className="font-semibold text-slate-900">{adminStats.usersTotal}</span>
+                  </p>
                   <div className="space-y-2 max-h-80 overflow-y-auto">
                     {adminData.users.map((user) => (
                       <div key={user.id} className="border border-slate-100 rounded-xl p-3">
                         <p className="text-sm font-semibold">{user.name} <span className="text-xs text-slate-500">({user.email})</span></p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          ID: {user.id} · @{user.handle || '-'} · {user.gender || '-'} · {user.age || '-'} · {user.city || '-'} · {user.country || '-'}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Bio: {user.bio || '-'}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Objectifs: {Array.isArray(user.goals) && user.goals.length > 0 ? user.goals.join(', ') : '-'}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Centres d&apos;intérêt: {Array.isArray(user.interests) && user.interests.length > 0 ? user.interests.join(', ') : '-'}
+                        </p>
                         <div className="mt-2 flex items-center gap-2 flex-wrap">
                           <select
                             value={user.role}
