@@ -955,24 +955,43 @@ app.get('/api/users', async (req, res) => {
   );
 });
 
-// Hubmates suggestions based on shared goals/interests (simple similarity score)
+// Hubmates suggestions with weighted ranking (mutual hubmates + affinities + locality)
 app.get('/api/hubmates/suggestions', authRequired, async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 6, 1), 20);
   const sameCityOnly = String(req.query.sameCityOnly || 'false') === 'true';
   const minScore = Math.max(Number(req.query.minScore) || 0, 0);
   const meResult = await pool.query(
-    'SELECT id, goals, interests, city FROM users WHERE id = $1',
+    'SELECT id, goals, interests, city, country FROM users WHERE id = $1',
     [req.user.id]
   );
   if (meResult.rows.length === 0) {
     return res.status(404).json({ error: 'Utilisateur introuvable.' });
   }
 
+  const normalize = (value) => String(value || '').trim().toLowerCase();
+  const normalizeList = (arr) =>
+    Array.from(new Set((arr || []).map((v) => normalize(v)).filter(Boolean)));
+  const tokenize = (arr) =>
+    Array.from(
+      new Set(
+        (arr || [])
+          .flatMap((item) =>
+            normalize(item).split(/[\s,.;:!?/\\|()[\]{}"'`~@#$%^&*+=<>-]+/)
+          )
+          .filter((token) => token.length >= 3)
+      )
+    );
+  const intersectCount = (a, bSet) => a.filter((v) => bSet.has(v)).length;
+
   const me = meResult.rows[0];
-  const myGoals = (me.goals || []).map((v) => String(v).toLowerCase());
-  const myInterests = (me.interests || []).map((v) => String(v).toLowerCase());
+  const myGoals = normalizeList(me.goals);
+  const myInterests = normalizeList(me.interests);
+  const myGoalTokens = tokenize(myGoals);
+  const myInterestTokens = tokenize(myInterests);
   const goalSet = new Set(myGoals);
   const interestSet = new Set(myInterests);
+  const goalTokenSet = new Set(myGoalTokens);
+  const interestTokenSet = new Set(myInterestTokens);
 
   const contactedResult = await pool.query(
     `
@@ -994,36 +1013,110 @@ app.get('/api/hubmates/suggestions', authRequired, async (req, res) => {
   );
   const contactedBackSet = new Set(contactedBackResult.rows.map((row) => row.userId));
 
+  const blockedByMeResult = await pool.query(
+    'SELECT blocked_id AS "userId" FROM blocked_users WHERE blocker_id = $1',
+    [req.user.id]
+  );
+  const blockedByMeSet = new Set(blockedByMeResult.rows.map((row) => row.userId));
+
+  const blockedMeResult = await pool.query(
+    'SELECT blocker_id AS "userId" FROM blocked_users WHERE blocked_id = $1',
+    [req.user.id]
+  );
+  const blockedMeSet = new Set(blockedMeResult.rows.map((row) => row.userId));
+
+  const acceptedEdgesResult = await pool.query(
+    `
+      SELECT from_user_id AS "fromUserId", to_user_id AS "toUserId"
+      FROM connection_requests
+      WHERE status = 'accepted'
+    `
+  );
+  const neighbors = new Map();
+  const addNeighbor = (a, b) => {
+    if (!neighbors.has(a)) neighbors.set(a, new Set());
+    neighbors.get(a).add(b);
+  };
+  acceptedEdgesResult.rows.forEach((edge) => {
+    addNeighbor(edge.fromUserId, edge.toUserId);
+    addNeighbor(edge.toUserId, edge.fromUserId);
+  });
+  const myNeighborSet = neighbors.get(req.user.id) || new Set();
+
   const othersResult = await pool.query(
-    'SELECT id, name, handle, city, bio, availability, goals, interests, avatar_url AS "avatarUrl" FROM users WHERE id <> $1',
+    `SELECT id, name, handle, city, country, bio, availability, goals, interests,
+            avatar_url AS "avatarUrl"
+     FROM users
+     WHERE id <> $1`,
     [req.user.id]
   );
 
   const scored = othersResult.rows
-    .filter((user) => !contactedSet.has(user.id) && !contactedBackSet.has(user.id))
+    .filter(
+      (user) =>
+        !contactedSet.has(user.id) &&
+        !contactedBackSet.has(user.id) &&
+        !blockedByMeSet.has(user.id) &&
+        !blockedMeSet.has(user.id)
+    )
     .map((user) => {
-      const otherGoals = (user.goals || []).map((v) => String(v).toLowerCase());
-      const otherInterests = (user.interests || []).map((v) => String(v).toLowerCase());
+      const otherGoals = normalizeList(user.goals);
+      const otherInterests = normalizeList(user.interests);
+      const otherGoalTokens = tokenize(otherGoals);
+      const otherInterestTokens = tokenize(otherInterests);
 
       const goalOverlap = otherGoals.filter((v) => goalSet.has(v));
       const interestOverlap = otherInterests.filter((v) => interestSet.has(v));
+      const goalTokenOverlap = intersectCount(otherGoalTokens, goalTokenSet);
+      const interestTokenOverlap = intersectCount(otherInterestTokens, interestTokenSet);
 
-      const goalScore = goalOverlap.length * 2;
-      const interestScore = interestOverlap.length * 1;
-      const cityBoost = me.city && user.city && me.city.toLowerCase() === user.city.toLowerCase() ? 1 : 0;
+      const sameCity =
+        normalize(me.city) && normalize(user.city) && normalize(me.city) === normalize(user.city);
+      const sameCountry =
+        normalize(me.country) &&
+        normalize(user.country) &&
+        normalize(me.country) === normalize(user.country);
 
-      const score = goalScore + interestScore + cityBoost;
+      const userNeighborSet = neighbors.get(user.id) || new Set();
+      let mutualHubmates = 0;
+      myNeighborSet.forEach((hubmateId) => {
+        if (userNeighborSet.has(hubmateId)) mutualHubmates += 1;
+      });
+
+      const score =
+        mutualHubmates * 5 +
+        goalOverlap.length * 3 +
+        interestOverlap.length * 2 +
+        goalTokenOverlap * 1 +
+        interestTokenOverlap * 1 +
+        (sameCity ? 2 : 0) +
+        (!sameCity && sameCountry ? 1 : 0);
+
+      const reasons = [];
+      if (mutualHubmates > 0) reasons.push(`${mutualHubmates} hubmate(s) en commun`);
+      if (goalOverlap.length > 0) reasons.push(`${goalOverlap.length} objectif(s) commun(s)`);
+      if (interestOverlap.length > 0) reasons.push(`${interestOverlap.length} intérêt(s) commun(s)`);
+      if (sameCity) reasons.push('Même ville');
+      else if (sameCountry) reasons.push('Même pays');
+
       return {
         ...user,
         score,
+        mutualHubmates,
         sharedGoals: goalOverlap,
         sharedInterests: interestOverlap,
-        sameCity: cityBoost === 1,
+        sameCity,
+        sameCountry,
+        reasons,
       };
     })
     .filter((user) => (sameCityOnly ? user.sameCity : true))
     .filter((user) => user.score >= minScore)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.mutualHubmates !== a.mutualHubmates) return b.mutualHubmates - a.mutualHubmates;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    })
     .slice(0, limit);
 
   res.json(scored);
